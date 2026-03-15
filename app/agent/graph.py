@@ -11,6 +11,7 @@ from app.agent.state import AgentState
 from app.agent.nodes import (
     collect_metadata_node,
     collect_runtime_node,
+    analyze_code_node,
     analyse_health_node,
     generate_report_node,
     error_node,
@@ -28,6 +29,12 @@ def _route_after_metadata(state: AgentState) -> str:
 def _route_after_runtime(state: AgentState) -> str:
     if state.get("error"):
         return "error"
+    return "analyze_code"
+
+
+def _route_after_code(state: AgentState) -> str:
+    if state.get("error"):
+        return "error"
     return "analyse_health"
 
 
@@ -38,12 +45,13 @@ def _route_after_analysis(state: AgentState) -> str:
 
 
 def build_health_graph() -> StateGraph:
-    """Construct and compile the LangGraph workflow."""
+    """Construct and compile the LangGraph workflow (5 nodes)."""
 
     graph = StateGraph(AgentState)
 
     graph.add_node("collect_metadata", collect_metadata_node)
     graph.add_node("collect_runtime", collect_runtime_node)
+    graph.add_node("analyze_code", analyze_code_node)
     graph.add_node("analyse_health", analyse_health_node)
     graph.add_node("generate_report", generate_report_node)
     graph.add_node("error", error_node)
@@ -55,6 +63,10 @@ def build_health_graph() -> StateGraph:
         "error": "error",
     })
     graph.add_conditional_edges("collect_runtime", _route_after_runtime, {
+        "analyze_code": "analyze_code",
+        "error": "error",
+    })
+    graph.add_conditional_edges("analyze_code", _route_after_code, {
         "analyse_health": "analyse_health",
         "error": "error",
     })
@@ -73,6 +85,7 @@ async def run_health_scan(
     gemini_model: str,
     target_org: str,
     progress_callback=None,
+    has_limits_package: bool = False,
 ) -> dict[str, Any]:
     """Run the full health-check pipeline and return the final report."""
 
@@ -85,10 +98,13 @@ async def run_health_scan(
         "gemini_api_key": gemini_api_key,
         "gemini_model": gemini_model,
         "target_org": target_org,
+        "has_limits_package": has_limits_package,
         "org_metadata": {},
         "org_metadata_summary": "",
         "runtime_data": {},
         "runtime_data_summary": "",
+        "code_analysis": {},
+        "code_analysis_summary": "",
         "health_report": {},
         "error": None,
         "current_step": "starting",

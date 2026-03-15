@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -17,14 +17,45 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app import database as db
 from app.config import HEALTH_CATEGORIES, app_state
+from app.parameter_registry import PARAMETER_REGISTRY, PARAMS_BY_CATEGORY
 from app.models import ConnectOrgRequest, SetApiKeyRequest
 from app.services import salesforce
 
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent / "static"
+REACT_DIR = STATIC_DIR / "dist"
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────
+
+async def _sync_orgs_from_cli() -> int:
+    """Discover all orgs authenticated in the Salesforce CLI and sync to DB."""
+    try:
+        result = await salesforce.list_orgs()
+    except Exception as exc:
+        logger.warning("Could not list CLI orgs: %s", exc)
+        return 0
+
+    seen_usernames: set[str] = set()
+    count = 0
+    for category in ("nonScratchOrgs", "scratchOrgs"):
+        for org in result.get(category, []):
+            username = org.get("username", "")
+            if not username or username in seen_usernames:
+                continue
+            connected = org.get("connectedStatus", "")
+            if connected != "Connected":
+                continue
+            seen_usernames.add(username)
+            alias = org.get("alias", "") or username.split("@")[0]
+            instance_url = org.get("instanceUrl", "")
+            org_name = org.get("name", "")
+            is_sandbox = bool(org.get("isSandbox", False))
+            await db.add_org(alias, username, instance_url, org_name, is_sandbox)
+            count += 1
+    logger.info("Synced %d connected orgs from Salesforce CLI", count)
+    return count
+
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
@@ -35,39 +66,33 @@ async def lifespan(application: FastAPI):
         app_state.gemini_api_key = api_key
     if model:
         app_state.gemini_model = model
-    orgs = await db.get_orgs()
-    if orgs:
-        app_state.sf_target_org = orgs[0]["alias"]
-        app_state.sf_username = orgs[0].get("username", "")
-        app_state.sf_instance_url = orgs[0].get("instance_url", "")
-        app_state.is_org_connected = True
+    await _sync_orgs_from_cli()
     yield
 
 
 class NoCacheStaticMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
-        if request.url.path.startswith("/static/") or request.url.path == "/":
+        if request.url.path.startswith("/static/") or request.url.path.startswith("/assets/") or request.url.path == "/":
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
         return response
 
 
-app = FastAPI(title="Salesforce Org Health Monitor", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Salesforce Org Health Monitor", version="2.0.0", lifespan=lifespan)
 app.add_middleware(NoCacheStaticMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+_use_react = (REACT_DIR / "index.html").is_file()
+if _use_react:
+    app.mount("/assets", StaticFiles(directory=str(REACT_DIR / "assets")), name="react-assets")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-
-@app.get("/")
-async def index():
-    return FileResponse(str(STATIC_DIR / "index.html"))
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", "version": "2.0.0"}
 
 
 # ── Settings ──────────────────────────────────────────────────────────
@@ -117,6 +142,13 @@ async def list_orgs():
     return {"orgs": await db.get_orgs()}
 
 
+@app.post("/api/orgs/sync")
+async def sync_orgs():
+    count = await _sync_orgs_from_cli()
+    orgs = await db.get_orgs()
+    return {"ok": True, "synced": count, "orgs": orgs}
+
+
 @app.post("/api/orgs/connect")
 async def connect_org(req: ConnectOrgRequest):
     try:
@@ -128,10 +160,9 @@ async def connect_org(req: ConnectOrgRequest):
         inst_url = org_info.get("instanceUrl", "")
 
         await db.add_org(req.alias, username, inst_url)
-        app_state.sf_target_org = req.alias
-        app_state.sf_username = username
-        app_state.sf_instance_url = inst_url
-        app_state.is_org_connected = True
+
+        # Re-sync all orgs from CLI after a new connection
+        await _sync_orgs_from_cli()
 
         return {"ok": True, "username": username, "instance_url": inst_url, "alias": req.alias}
     except Exception as exc:
@@ -142,13 +173,25 @@ async def connect_org(req: ConnectOrgRequest):
 @app.delete("/api/orgs/{org_id}")
 async def remove_org(org_id: int):
     await db.remove_org(org_id)
-    remaining = await db.get_orgs()
-    if not remaining:
-        app_state.is_org_connected = False
-        app_state.sf_target_org = ""
-    else:
-        app_state.sf_target_org = remaining[0]["alias"]
     return {"ok": True}
+
+
+@app.get("/api/orgs/{org_alias}/check-limits-package")
+async def check_limits_package(org_alias: str):
+    """Live detection of the Salesforce Limit Monitor package in an org."""
+    try:
+        result = await salesforce.detect_limits_package(org_alias)
+        return result
+    except Exception as exc:
+        logger.warning("Limits package check failed for %s: %s", org_alias, exc)
+        return {
+            "installed": False,
+            "objects_exist": False,
+            "classes_active": False,
+            "jobs_running": False,
+            "status": "check_failed",
+            "error": str(exc),
+        }
 
 
 # ── Health Categories ─────────────────────────────────────────────────
@@ -158,11 +201,38 @@ async def list_categories():
     return {"categories": HEALTH_CATEGORIES}
 
 
+# ── Parameter Checklist ──────────────────────────────────────────────
+
+@app.get("/api/parameter-checklist")
+async def parameter_checklist():
+    """Full 294-parameter registry with metadata for the Settings page."""
+    grouped: dict[str, Any] = {}
+    for cat in HEALTH_CATEGORIES:
+        key = cat["key"]
+        params = PARAMS_BY_CATEGORY.get(key, [])
+        grouped[key] = {
+            "label": cat["label"],
+            "weight": cat["weight"],
+            "total_params": cat["params"],
+            "parameters": params,
+        }
+    return {
+        "total": len(PARAMETER_REGISTRY),
+        "categories": grouped,
+        "registry": PARAMETER_REGISTRY,
+    }
+
+
 # ── Scans ─────────────────────────────────────────────────────────────
 
+@app.get("/api/scans/running")
+async def running_scans():
+    return {"scans": await db.get_running_scans()}
+
+
 @app.get("/api/scans")
-async def list_scans():
-    return {"scans": await db.get_scans()}
+async def list_scans(org_alias: str | None = Query(default=None)):
+    return {"scans": await db.get_scans(org_alias)}
 
 
 @app.get("/api/scans/{scan_id}")
@@ -198,11 +268,17 @@ async def unresolve_finding(finding_id: int):
 # ── Dashboard ─────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard")
-async def dashboard():
-    stats = await db.get_dashboard_stats()
-    extended = await db.get_dashboard_extended()
-    recent = await db.get_scans()
-    return {"stats": stats, "extended": extended, "recent_scans": recent[:5]}
+async def dashboard(org_alias: str | None = Query(default=None)):
+    stats = await db.get_dashboard_stats(org_alias)
+    extended = await db.get_dashboard_extended(org_alias)
+    recent = await db.get_scans(org_alias)
+    has_gov_limits = await db.has_governor_limits_data(org_alias)
+    return {
+        "stats": stats,
+        "extended": extended,
+        "recent_scans": recent[:5],
+        "has_governor_limits": has_gov_limits,
+    }
 
 
 # ── WebSocket Health Scan ─────────────────────────────────────────────
@@ -233,15 +309,25 @@ async def _handle_scan(ws: WebSocket, data: dict):
     if not app_state.gemini_api_key:
         await ws.send_json({"type": "error", "message": "Gemini API key not configured. Go to Settings."})
         return
-    if not app_state.is_org_connected:
-        await ws.send_json({"type": "error", "message": "No Salesforce org connected. Go to Settings."})
-        return
-    if app_state.scan_running:
-        await ws.send_json({"type": "error", "message": "A scan is already running."})
+
+    org_alias = data.get("org_alias", "")
+    if not org_alias:
+        await ws.send_json({"type": "error", "message": "No org specified for scan."})
         return
 
-    scan_id = await db.create_scan(app_state.sf_target_org, app_state.sf_username)
-    app_state.scan_running = True
+    org = await db.get_org_by_alias(org_alias)
+    if not org:
+        await ws.send_json({"type": "error", "message": f"Org '{org_alias}' not found or inactive."})
+        return
+
+    if org_alias in app_state.running_scans:
+        await ws.send_json({"type": "error", "message": f"A scan is already running for '{org_alias}'."})
+        return
+
+    org_username = org.get("username", "")
+    has_limits_package = bool(data.get("has_limits_package", False))
+    scan_id = await db.create_scan(org_alias, org_username)
+    app_state.running_scans.add(org_alias)
 
     async def progress_cb(message: str, step: int = 0, total: int = 4, percent: int = 0):
         await ws.send_json({
@@ -250,18 +336,24 @@ async def _handle_scan(ws: WebSocket, data: dict):
         })
 
     try:
-        await ws.send_json({"type": "started", "scan_id": scan_id})
+        await ws.send_json({"type": "started", "scan_id": scan_id, "org_alias": org_alias})
 
         report = await run_health_scan(
             gemini_api_key=app_state.gemini_api_key,
             gemini_model=app_state.gemini_model,
-            target_org=app_state.sf_target_org,
+            target_org=org_alias,
             progress_callback=progress_cb,
+            has_limits_package=has_limits_package,
         )
 
         findings_list = report.get("findings", [])
         stats = report.get("statistics", {})
         category_scores = report.get("category_scores", {})
+        governor_limits = report.get("governor_limits", [])
+        code_analysis = report.get("code_analysis_results", {})
+        parameter_coverage = report.get("parameter_coverage", {})
+        governor_limits_trends = report.get("governor_limits_trends", {})
+        parameter_results = report.get("parameter_results", {})
 
         await db.update_scan(
             scan_id,
@@ -277,6 +369,11 @@ async def _handle_scan(ws: WebSocket, data: dict):
             info_count=stats.get("info", 0),
             summary=report.get("summary", ""),
             report_json=json.dumps(report),
+            governor_limits_json=json.dumps(governor_limits) if governor_limits else None,
+            code_analysis_json=json.dumps(code_analysis) if code_analysis else None,
+            parameter_coverage_json=json.dumps(parameter_coverage) if parameter_coverage else None,
+            governor_limits_trends_json=json.dumps(governor_limits_trends) if governor_limits_trends else None,
+            parameter_results_json=json.dumps(parameter_results) if parameter_results else None,
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
 
@@ -299,4 +396,14 @@ async def _handle_scan(ws: WebSocket, data: dict):
         await db.update_scan(scan_id, status="failed", completed_at=datetime.now(timezone.utc).isoformat())
         await ws.send_json({"type": "error", "message": f"Scan failed: {exc}"})
     finally:
-        app_state.scan_running = False
+        app_state.running_scans.discard(org_alias)
+
+
+# ── SPA Catch-All (must be last) ─────────────────────────────────────
+
+@app.get("/{full_path:path}")
+async def spa_catch_all(full_path: str):
+    """Serve React SPA for all non-API routes, falling back to legacy UI."""
+    if _use_react:
+        return FileResponse(str(REACT_DIR / "index.html"))
+    return FileResponse(str(STATIC_DIR / "index.html"))

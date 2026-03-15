@@ -1,0 +1,43 @@
+﻿sf :  ┬╗   Warning: @salesforce/cli update available from 2.78.3 to 2.125.2.
+At C:\Users\psaikia004\AppData\Local\Temp\ps-script-9cec59c9-1703-4ff4-8851-0a7cfc94e68d.ps1:85 char:1
++ sf sobject list --help 2>&1 | Out-File -FilePath ".\data\sobject_help ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ┬╗   Warning: ...8.3 to 2.125.2.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+List all Salesforce objects of a specified category.
+
+USAGE
+  $ sf sobject list -o <value> [--json] [--flags-dir <value>]
+    [--api-version <value>] [-s <value>]
+
+FLAGS
+  -o, --target-org=<value>   (required) Username or alias of the target org. Not
+                             required if the `target-org` configuration variable
+                             is already set.
+  -s, --sobject=<value>      [default: ALL] Category of objects to list.
+      --api-version=<value>  Override the api version used for api requests made
+                             by this command
+
+GLOBAL FLAGS
+  --flags-dir=<value>  Import flag values from a directory.
+  --json               Format output as json.
+
+DESCRIPTION
+  List all Salesforce objects of a specified category.
+
+  You can list the standard objects, custom objects, or all. The lists include
+  only Salesforce objects, not Tooling API objects.
+
+ALIASES
+  $ sf force schema sobject list
+
+EXAMPLES
+  List all objects in your default org:
+
+    $ sf sobject list --sobject all
+
+  List only custom objects in the org with alias "my-scratch-org":
+
+    $ sf sobject list --sobject custom --target-org my-scratch-org
+

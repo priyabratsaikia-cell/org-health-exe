@@ -1,0 +1,12 @@
+﻿{
+  "status": 0,
+  "result": [
+    "Impact_Assessment__c",
+    "LimitSnapshot__c",
+    "Limit__c",
+    "Org_Metadata_Snapshot__c",
+    "Release_Item__c",
+    "Release_Scan_Ready__e"
+  ],
+  "warnings": []
+}

@@ -1,0 +1,26 @@
+﻿{
+  "status": 0,
+  "result": {
+    "records": [
+      {
+        "attributes": {
+          "type": "ApexClass",
+          "url": "/services/data/v66.0/sobjects/ApexClass/01pfj00000A2loHAAR"
+        },
+        "Name": "LimitsSnapshotSchedule",
+        "Status": "Active"
+      },
+      {
+        "attributes": {
+          "type": "ApexClass",
+          "url": "/services/data/v66.0/sobjects/ApexClass/01pfj00000A2loJAAR"
+        },
+        "Name": "LimitsUtil",
+        "Status": "Active"
+      }
+    ],
+    "totalSize": 2,
+    "done": true
+  },
+  "warnings": []
+}
