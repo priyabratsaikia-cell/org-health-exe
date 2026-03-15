@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Hexagon, Sparkles, Leaf, Radio, ChevronDown, Apple, Circle, Landmark, BookOpen, Zap, Square, Sun, Eclipse } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Hexagon, Sparkles, Leaf, Radio, ChevronDown, Apple, Circle, Landmark, BookOpen, Zap, Square, Sun, Eclipse, PlusCircle, Shield, HelpCircle, ExternalLink } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { getColors } from '@/utils/colors';
 
 const mainNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/scans/new', icon: PlusCircle, label: 'New Scan' },
   { to: '/scans', icon: FileText, label: 'Scans & Reports' },
+  { to: '/compliance', icon: Shield, label: 'Compliance Corner' },
 ];
 
 const dashboardVariants = [
@@ -24,6 +27,7 @@ const dashboardVariants = [
 
 export default function Sidebar() {
   const { state } = useApp();
+  const C = getColors(state.accentColor);
   const location = useLocation();
   const connected = !!state.selectedOrg;
   const orgLabel = state.selectedOrg
@@ -34,67 +38,100 @@ export default function Sidebar() {
   const [variantsOpen, setVariantsOpen] = useState(isDashboardRoute);
 
   return (
-    <aside className="w-[248px] min-w-[248px] h-screen bg-surface border-r border-white/[0.06] flex flex-col z-50">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
-        <div className="w-9 h-9 rounded-lg accent-gradient flex items-center justify-center shadow-glow">
-          <Hexagon className="w-5 h-5 text-white" />
+    <aside
+      className="w-[248px] min-w-[248px] h-screen flex flex-col z-50"
+      style={{ background: C.gray90, borderRight: `1px solid ${C.gray80}` }}
+    >
+      {/* Logo */}
+      <div
+        className="flex items-center gap-3 px-5"
+        style={{ minHeight: 72, borderBottom: `1px solid ${C.gray80}` }}
+      >
+        <div
+          className="w-8 h-8 flex items-center justify-center"
+          style={{ background: C.blue60 }}
+        >
+          <Hexagon className="w-4 h-4" style={{ color: C.white }} />
         </div>
-        <div>
-          <span className="block font-extrabold text-sm text-gray-100 tracking-tight">Org Health Agent</span>
-          <span className="text-[10px] font-bold text-accent uppercase tracking-widest bg-accent-glow px-1.5 py-0.5 rounded">PwC</span>
-        </div>
+        <span
+          className="text-[14px] font-semibold"
+          style={{ color: C.gray10, fontFamily: '"IBM Plex Sans", sans-serif' }}
+        >
+          Org Health Agent
+        </span>
       </div>
 
-      <nav className="flex-1 p-2.5 flex flex-col gap-0.5 overflow-y-auto">
+      {/* Navigation */}
+      <nav className="flex-1 py-2 flex flex-col overflow-y-auto">
         {mainNavItems.map(item => (
           <div key={item.to}>
             <div className="flex items-center">
               <NavLink
                 to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) =>
-                  `flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 border-l-[2.5px] ${
-                    isActive
-                      ? 'bg-accent-glow text-accent-light font-semibold border-accent'
-                      : 'text-gray-400 border-transparent hover:bg-white/[0.04] hover:text-gray-200'
-                  }`
-                }
+                end={item.to === '/' || item.to === '/scans'}
+                className="flex-1"
               >
-                <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-                <span>{item.label}</span>
+                {({ isActive }) => (
+                  <div
+                    className="flex items-center gap-3 px-5 py-2.5 text-[14px] font-normal transition-colors"
+                    style={{
+                      color: isActive ? C.white : C.gray40,
+                      background: isActive ? C.gray100 : 'transparent',
+                      borderLeft: isActive ? `3px solid ${C.blue60}` : '3px solid transparent',
+                    }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = C.gray80; }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? C.gray100 : 'transparent'; }}
+                  >
+                    <item.icon className="w-[16px] h-[16px] flex-shrink-0" style={{ color: isActive ? C.blue40 : C.gray50 }} />
+                    <span>{item.label}</span>
+                  </div>
+                )}
               </NavLink>
               {item.to === '/' && (
                 <button
                   onClick={() => setVariantsOpen(!variantsOpen)}
-                  className="p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/[0.04] transition-all mr-1"
+                  className="p-2 mr-2 transition-colors"
+                  style={{ color: C.gray50 }}
+                  onMouseEnter={e => (e.currentTarget.style.color = C.gray10)}
+                  onMouseLeave={e => (e.currentTarget.style.color = C.gray50)}
                 >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${variantsOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown
+                    className="w-3.5 h-3.5 transition-transform duration-200"
+                    style={{ transform: variantsOpen ? 'rotate(180deg)' : 'rotate(0)' }}
+                  />
                 </button>
               )}
             </div>
 
             {item.to === '/' && variantsOpen && (
-              <div className="ml-4 mt-0.5 space-y-0.5 border-l border-white/[0.06] pl-2">
+              <div style={{ borderLeft: `1px solid ${C.gray80}`, marginLeft: 28 }}>
                 {dashboardVariants.map(variant => (
                   <NavLink
                     key={variant.to}
                     to={variant.to}
-                    className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[12px] font-medium transition-all duration-150 ${
-                        isActive
-                          ? 'text-white font-semibold'
-                          : 'text-gray-500 hover:bg-white/[0.04] hover:text-gray-300'
-                      }`
-                    }
                   >
                     {({ isActive }) => (
-                      <>
-                        <variant.icon className="w-[14px] h-[14px] flex-shrink-0" style={{ color: isActive ? variant.color : undefined }} />
+                      <div
+                        className="flex items-center gap-2.5 px-4 py-2 text-[12px] font-normal transition-colors"
+                        style={{
+                          color: isActive ? C.white : C.gray50,
+                          background: isActive ? `${C.blue60}15` : 'transparent',
+                        }}
+                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = C.gray80; }}
+                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? `${C.blue60}15` : 'transparent'; }}
+                      >
+                        <variant.icon
+                          className="w-[14px] h-[14px] flex-shrink-0"
+                          style={{ color: isActive ? variant.color : C.gray60 }}
+                        />
                         <span>{variant.label}</span>
                         {isActive && (
-                          <span className="w-1.5 h-1.5 rounded-full ml-auto" style={{ backgroundColor: variant.color, boxShadow: `0 0 6px ${variant.color}80` }} />
+                          <span
+                            className="w-1.5 h-1.5 rounded-full ml-auto"
+                            style={{ backgroundColor: variant.color }}
+                          />
                         )}
-                      </>
+                      </div>
                     )}
                   </NavLink>
                 ))}
@@ -103,29 +140,60 @@ export default function Sidebar() {
           </div>
         ))}
 
-        <div className="h-px bg-white/[0.06] my-2 mx-3" />
+        {/* Spacer to push bottom items down */}
+        <div className="flex-1" />
 
-        <NavLink
-          to="/settings"
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 border-l-[2.5px] ${
-              isActive
-                ? 'bg-accent-glow text-accent-light font-semibold border-accent'
-                : 'text-gray-400 border-transparent hover:bg-white/[0.04] hover:text-gray-200'
-            }`
-          }
+        {/* Divider */}
+        <div className="mx-5 my-2" style={{ height: 1, background: C.gray80 }} />
+
+        {/* Help & Documentation */}
+        <a
+          href="https://www.pwc.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-5 py-2.5 text-[14px] font-normal transition-colors"
+          style={{ color: C.gray40, borderLeft: '3px solid transparent' }}
+          onMouseEnter={e => (e.currentTarget.style.background = C.gray80)}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
-          <Settings className="w-[18px] h-[18px] flex-shrink-0" />
-          <span>Settings</span>
+          <HelpCircle className="w-[16px] h-[16px] flex-shrink-0" style={{ color: C.gray50 }} />
+          <span>Help & Docs</span>
+          <ExternalLink className="w-3 h-3 ml-auto" style={{ color: C.gray60 }} />
+        </a>
+
+        {/* Settings */}
+        <NavLink to="/settings">
+          {({ isActive }) => (
+            <div
+              className="flex items-center gap-3 px-5 py-2.5 text-[14px] font-normal transition-colors"
+              style={{
+                color: isActive ? C.white : C.gray40,
+                background: isActive ? C.gray100 : 'transparent',
+                borderLeft: isActive ? `3px solid ${C.blue60}` : '3px solid transparent',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = C.gray80; }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? C.gray100 : 'transparent'; }}
+            >
+              <Settings className="w-[16px] h-[16px] flex-shrink-0" style={{ color: isActive ? C.blue40 : C.gray50 }} />
+              <span>Settings</span>
+            </div>
+          )}
         </NavLink>
       </nav>
 
-      <div className="px-4 py-3 border-t border-white/[0.06] flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${connected ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)] animate-pulse-slow' : 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]'}`} />
-          <span className="truncate max-w-[120px] text-gray-400">{orgLabel}</span>
+      {/* Footer */}
+      <div
+        className="px-5 py-3 flex items-center justify-between"
+        style={{ borderTop: `1px solid ${C.gray80}` }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="w-2 h-2 rounded-full flex-shrink-0"
+            style={{ background: connected ? C.supportSuccess : C.supportError }}
+          />
+          <span className="text-[12px] truncate max-w-[140px]" style={{ color: C.gray40 }}>{orgLabel}</span>
         </div>
-        <span className="text-[10px] text-gray-600 font-medium">v2.0</span>
+        <span className="text-[11px]" style={{ color: C.gray60 }}>v2.0</span>
       </div>
     </aside>
   );

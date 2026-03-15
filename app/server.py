@@ -57,9 +57,25 @@ async def _sync_orgs_from_cli() -> int:
     return count
 
 
+async def _cleanup_stale_scans():
+    """Mark any scans left in 'running' state as 'failed' on startup."""
+    try:
+        stale = await db.get_running_scans()
+        for scan in stale:
+            scan_id = scan.get("id")
+            if scan_id:
+                await db.update_scan(scan_id, status="failed")
+                logger.info("Marked stale running scan %d as failed", scan_id)
+        if stale:
+            logger.info("Cleaned up %d stale running scan(s)", len(stale))
+    except Exception as exc:
+        logger.warning("Could not clean up stale scans: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     await db.init_db()
+    await _cleanup_stale_scans()
     api_key = await db.get_setting("gemini_api_key")
     model = await db.get_setting("gemini_model")
     if api_key:

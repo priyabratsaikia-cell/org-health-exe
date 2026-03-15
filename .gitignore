@@ -10,3 +10,12 @@ dist/
 build/
 .idea/
 .vscode/
+
+# Electron
+node_modules/
+dist-electron/
+python-dist/
+*.exe
+!build/icon.ico
+!build/license.txt
+!build/installer.nsh

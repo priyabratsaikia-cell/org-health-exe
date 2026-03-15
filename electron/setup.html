@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Org Health Agent - Setup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #161616;
+    color: #F4F4F4;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Titlebar ───────────────────────────────── */
+  .titlebar {
+    -webkit-app-region: drag;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px 0 16px;
+    background: #262626;
+    border-bottom: 1px solid #393939;
+    flex-shrink: 0;
+  }
+  .titlebar-text { font-size: 12px; color: #A8A8A8; font-weight: 500; }
+  .titlebar-close {
+    -webkit-app-region: no-drag;
+    background: none; border: none; color: #A8A8A8;
+    cursor: pointer; width: 36px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; transition: background 0.15s, color 0.15s;
+  }
+  .titlebar-close:hover { background: #DA1E28; color: #fff; }
+
+  /* ── Content ────────────────────────────────── */
+  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Steps indicator ────────────────────────── */
+  .steps-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; padding: 24px 48px 16px; flex-shrink: 0;
+  }
+  .step-indicator {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; transition: all 0.3s;
+    background: #393939; color: #6F6F6F; border: 2px solid #393939;
+  }
+  .step-indicator.active .step-num {
+    background: #0F62FE; color: #fff; border-color: #0F62FE;
+  }
+  .step-indicator.done .step-num {
+    background: #198038; color: #fff; border-color: #198038;
+  }
+  .step-label { font-size: 12px; color: #6F6F6F; transition: color 0.3s; }
+  .step-indicator.active .step-label { color: #F4F4F4; }
+  .step-indicator.done .step-label { color: #42BE65; }
+  .step-connector {
+    width: 40px; height: 1px; background: #393939; margin: 0 4px;
+  }
+  .step-connector.done { background: #198038; }
+
+  /* ── Step panels ────────────────────────────── */
+  .step-panel {
+    flex: 1; display: none; flex-direction: column;
+    padding: 0 48px 20px; overflow-y: auto;
+  }
+  .step-panel.active { display: flex; }
+
+  .step-title {
+    font-size: 20px; font-weight: 600; color: #F4F4F4;
+    margin-bottom: 4px;
+  }
+  .step-desc {
+    font-size: 13px; color: #8D8D8D; margin-bottom: 20px; line-height: 1.5;
+  }
+
+  /* ── Cards / Boxes ──────────────────────────── */
+  .info-card {
+    background: #262626; border: 1px solid #393939;
+    padding: 20px; margin-bottom: 12px;
+  }
+  .info-card h3 {
+    font-size: 14px; font-weight: 600; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .info-card h3.warn { color: #F1C21B; }
+  .info-card h3.info { color: #4589FF; }
+  .info-card p { font-size: 13px; color: #C6C6C6; line-height: 1.6; margin-bottom: 8px; }
+  .info-card p:last-child { margin-bottom: 0; }
+
+  .contact-bar {
+    background: #161616; border-left: 3px solid #0F62FE;
+    padding: 10px 14px; font-size: 13px; color: #78A9FF; margin-top: 8px;
+  }
+
+  /* ── License text ───────────────────────────── */
+  .license-box {
+    background: #262626; border: 1px solid #393939;
+    padding: 16px 20px; font-size: 12px; color: #A8A8A8;
+    line-height: 1.7; flex: 1; overflow-y: auto;
+    min-height: 200px; margin-bottom: 12px;
+  }
+  .license-box strong { color: #E0E0E0; }
+
+  .checkbox-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; flex-shrink: 0;
+  }
+  .checkbox-row input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: #0F62FE; cursor: pointer;
+    flex-shrink: 0;
+  }
+  .checkbox-row label { font-size: 13px; color: #E0E0E0; cursor: pointer; }
+
+  /* ── CLI status ─────────────────────────────── */
+  .cli-status {
+    display: flex; align-items: center; gap: 16px;
+    background: #262626; border: 1px solid #393939;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .cli-icon {
+    width: 48px; height: 48px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+  }
+  .cli-icon.found { background: #044317; color: #42BE65; }
+  .cli-icon.missing { background: #520408; color: #FA4D56; }
+  .cli-icon.checking { background: #002D9C; color: #78A9FF; animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: 0.5; } }
+
+  .cli-text h4 { font-size: 14px; font-weight: 600; color: #F4F4F4; margin-bottom: 2px; }
+  .cli-text p { font-size: 12px; color: #8D8D8D; }
+
+  .cli-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+  .btn-ghost {
+    background: transparent; border: 1px solid #393939;
+    color: #78A9FF; padding: 8px 16px; font-size: 13px;
+    cursor: pointer; transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn-ghost:hover { background: #262626; border-color: #0F62FE; }
+
+  /* ── Theme cards ────────────────────────────── */
+  .theme-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin-bottom: 16px;
+  }
+  .theme-card {
+    background: #262626; border: 2px solid #393939;
+    padding: 24px; cursor: pointer;
+    transition: all 0.2s; display: flex; flex-direction: column;
+    align-items: center; gap: 16px;
+  }
+  .theme-card:hover { border-color: #525252; }
+  .theme-card.selected { border-color: #0F62FE; background: #1a2332; }
+
+  .theme-preview {
+    width: 100%; height: 80px; border-radius: 4px; position: relative;
+    overflow: hidden; display: flex;
+  }
+  .theme-preview .sidebar-mock {
+    width: 30%; height: 100%; display: flex; flex-direction: column;
+    padding: 8px; gap: 4px;
+  }
+  .theme-preview .sidebar-mock .bar {
+    height: 6px; border-radius: 2px; opacity: 0.6;
+  }
+  .theme-preview .content-mock {
+    flex: 1; padding: 8px; display: grid;
+    grid-template-columns: 1fr 1fr; gap: 4px;
+  }
+  .theme-preview .content-mock .block {
+    border-radius: 2px; opacity: 0.25;
+  }
+
+  .theme-name { font-size: 14px; font-weight: 600; color: #F4F4F4; }
+  .theme-desc { font-size: 12px; color: #8D8D8D; text-align: center; }
+  .theme-note {
+    font-size: 12px; color: #6F6F6F; text-align: center;
+    margin-top: 4px; font-style: italic;
+  }
+
+  /* ── Footer ─────────────────────────────────── */
+  .footer {
+    flex-shrink: 0; display: flex; justify-content: space-between;
+    align-items: center; padding: 12px 48px 20px;
+    border-top: 1px solid #393939;
+  }
+  .btn {
+    padding: 10px 24px; font-size: 14px; font-weight: 500;
+    cursor: pointer; border: none; transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn-secondary {
+    background: #393939; color: #E0E0E0;
+  }
+  .btn-secondary:hover { background: #525252; }
+  .btn-primary {
+    background: #0F62FE; color: #FFFFFF;
+  }
+  .btn-primary:hover { background: #0353E9; }
+  .btn-primary:disabled { background: #393939; color: #6F6F6F; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="titlebar-text">Org Health Agent - Setup</span>
+    <button class="titlebar-close" id="closeBtn">&#x2715;</button>
+  </div>
+
+  <div class="content">
+    <!-- Step Progress -->
+    <div class="steps-bar" id="stepsBar"></div>
+
+    <!-- Screen 1: Notice -->
+    <div class="step-panel active" id="step-0">
+      <h2 class="step-title">Important Notice</h2>
+      <p class="step-desc">Please read the following information before proceeding.</p>
+
+      <div class="info-card">
+        <h3 class="warn">&#9888; Active Development</h3>
+        <p>
+          This agentic application is in <strong>active development</strong>. Features may change,
+          and you may encounter unexpected behavior. We are continuously improving the experience.
+        </p>
+        <p>
+          <strong>We do not claim any guarantee</strong> regarding the accuracy, completeness, or
+          reliability of the health scan results. Always verify findings independently before making
+          changes to your Salesforce org.
+        </p>
+        <div class="contact-bar">
+          <strong>Need help?</strong> Reach out to <strong>Priyabrat Saikia</strong> for support, feedback, or questions.
+        </div>
+      </div>
+
+      <div class="info-card">
+        <h3 class="info">What This Application Does</h3>
+        <p>
+          Org Health Agent connects to your Salesforce orgs via the Salesforce CLI, retrieves metadata
+          and runtime data, and uses AI (Google Gemini) to analyze your org's health across 294 parameters
+          in 11 categories.
+        </p>
+        <p>
+          Reports are generated locally and stored in a local database. Metadata summaries are sent
+          to the configured AI model for analysis only.
+        </p>
+      </div>
+    </div>
+
+    <!-- Screen 2: License Agreement -->
+    <div class="step-panel" id="step-1">
+      <h2 class="step-title">License Agreement</h2>
+      <p class="step-desc">Please read and accept the terms to continue.</p>
+
+      <div class="license-box">
+        <strong>END USER LICENSE AGREEMENT</strong><br><br>
+
+        By using this software ("Org Health Agent"), you acknowledge and agree to the following:<br><br>
+
+        <strong>1. AS-IS Software.</strong> This software is provided "as is" without warranty of any kind,
+        express or implied, including but not limited to the warranties of merchantability, fitness for a
+        particular purpose, and noninfringement.<br><br>
+
+        <strong>2. Active Development.</strong> This application is under active development. Features,
+        interfaces, and behaviors may change without notice. Data generated during scans may not persist
+        across updates.<br><br>
+
+        <strong>3. No Guarantee.</strong> The developers make no guarantees regarding the accuracy,
+        completeness, or reliability of any health reports, scores, findings, or recommendations produced
+        by this software.<br><br>
+
+        <strong>4. Salesforce Data.</strong> This application connects to your Salesforce orgs using the
+        Salesforce CLI. It reads metadata and runtime data for analysis. No data is sent to external
+        servers other than the configured AI model provider (Google Gemini) for analysis purposes.<br><br>
+
+        <strong>5. Limitation of Liability.</strong> In no event shall the developers be liable for any
+        direct, indirect, incidental, special, exemplary, or consequential damages arising from the use
+        of this software.<br><br>
+
+        <strong>6. AI-Generated Content.</strong> Health analysis and recommendations are generated using
+        AI models and should be reviewed by qualified professionals before implementation.<br><br>
+
+        <strong>7. Your Responsibility.</strong> You are solely responsible for any actions taken based on
+        the reports generated by this application. Always verify findings in your Salesforce org before
+        making changes.<br><br>
+
+        For questions or support, contact: <strong>Priyabrat Saikia</strong>
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="agreeCheck">
+        <label for="agreeCheck">I have read and agree to the terms above</label>
+      </div>
+    </div>
+
+    <!-- Screen 3: Salesforce CLI Check -->
+    <div class="step-panel" id="step-2">
+      <h2 class="step-title">Salesforce CLI</h2>
+      <p class="step-desc">The Org Health Agent requires the Salesforce CLI to connect to and analyze your orgs.</p>
+
+      <div class="cli-status" id="cliStatus">
+        <div class="cli-icon checking" id="cliIcon">&#8987;</div>
+        <div class="cli-text">
+          <h4 id="cliTitle">Checking...</h4>
+          <p id="cliDetail">Detecting Salesforce CLI installation</p>
+        </div>
+      </div>
+
+      <div class="cli-actions" id="cliActions" style="display: none;">
+        <button class="btn-ghost" id="downloadCliBtn">Download Salesforce CLI</button>
+        <button class="btn-ghost" id="recheckCliBtn">Check Again</button>
+      </div>
+
+      <div class="info-card">
+        <h3 class="info">What is Salesforce CLI?</h3>
+        <p>
+          Salesforce CLI (<code style="background:#393939;padding:2px 6px;border-radius:2px;color:#78A9FF;">sf</code>)
+          is a command-line tool from Salesforce used to authenticate with orgs, retrieve metadata, and
+          execute queries. This agent uses it to gather data about your org's health.
+        </p>
+        <p>
+          Download from: <strong style="color:#78A9FF;">https://developer.salesforce.com/tools/salesforcecli</strong>
+        </p>
+      </div>
+    </div>
+
+    <!-- Screen 4: Color Theme -->
+    <div class="step-panel" id="step-3">
+      <h2 class="step-title">Choose Your Theme</h2>
+      <p class="step-desc">Select a color theme for the application interface.</p>
+
+      <div class="theme-grid" id="themeGrid"></div>
+
+      <p class="theme-note">You can change this later in Settings.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="btn btn-secondary" id="backBtn" style="visibility: hidden;">Back</button>
+    <button class="btn btn-primary" id="nextBtn">Next</button>
+  </div>
+
+  <script src="setup-renderer.js"></script>
+</body>
+</html>

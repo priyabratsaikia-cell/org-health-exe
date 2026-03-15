@@ -1,0 +1,67 @@
+{
+  "name": "org-health-agent",
+  "version": "1.0.0",
+  "description": "Salesforce Org Health Monitoring Agent - Desktop Application",
+  "main": "electron/main.js",
+  "author": "Priyabrat Saikia",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dev:clean": "electron . --clear-cache",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:python": "node scripts/build-python.js",
+    "dist": "electron-builder --win",
+    "build:all": "npm run build:frontend && npm run build:python && npm run dist"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "com.orghealth.agent",
+    "productName": "Org Health Agent",
+    "copyright": "Copyright © 2026 Priyabrat Saikia",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "license": "build/license.txt",
+      "include": "build/installer.nsh",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "menuCategory": "Salesforce Tools",
+      "shortcutName": "Org Health Agent"
+    },
+    "extraResources": [
+      {
+        "from": "python-dist/",
+        "to": "python-backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "files": [
+      "electron/**/*",
+      "!app/",
+      "!frontend/",
+      "!data/",
+      "!*.py",
+      "!*.spec",
+      "!python-dist/",
+      "!scripts/",
+      "!.git/",
+      "!node_modules/",
+      "!__pycache__/"
+    ],
+    "asar": false
+  }
+}

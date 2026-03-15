@@ -7,6 +7,7 @@ Starts the FastAPI server and opens the browser UI.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import threading
 import time
@@ -36,7 +37,8 @@ def main():
     logger.info("Starting Salesforce Org Health Monitoring Agent…")
     logger.info("Server will be available at http://%s:%s", HOST, PORT)
 
-    threading.Thread(target=open_browser, daemon=True).start()
+    if not os.environ.get("ELECTRON_RUN"):
+        threading.Thread(target=open_browser, daemon=True).start()
 
     uvicorn.run(
         "app.server:app",

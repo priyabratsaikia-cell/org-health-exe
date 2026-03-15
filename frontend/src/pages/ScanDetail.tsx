@@ -1,22 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Download, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, Code2, BarChart3, Shield, Info, X, ExternalLink, TrendingUp, CheckCircle2, Activity } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LineChart, Line } from 'recharts';
+import {
+  Download, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight,
+  Code2, BarChart3, Info, X, ExternalLink, CheckCircle, Activity,
+  ArrowLeft, FileText, Shield, Loader2, Layers
+} from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import PageTransition from '@/components/layout/PageTransition';
-import GlassCard from '@/components/ui/GlassCard';
-import Button from '@/components/ui/Button';
 import FindingsTable from '@/components/findings/FindingsTable';
-import { SkeletonCard, SkeletonChart } from '@/components/ui/Skeleton';
 import { api } from '@/api/client';
 import { useApp } from '@/context/AppContext';
+import { getColors } from '@/utils/colors';
 import { fmtDate, fmtNum } from '@/utils/formatters';
-import { scoreGrade, scoreColor } from '@/utils/scoreHelpers';
+import { scoreGrade } from '@/utils/scoreHelpers';
 import { exportReport } from '@/utils/pdfExport';
 import type { Scan, Finding, CodeAnalysisResult, ParameterCoverage, CategoryDetail, ParameterResult, ParameterResultsPayload } from '@/api/types';
 
-const SEV_COLORS: Record<string, string> = { CRIT: '#EF4444', HIGH: '#F97316', MED: '#EAB308', LOW: '#22C55E', INFO: '#6366F1' };
-const SEV_LABELS: Record<string, string> = { CRIT: 'Critical', HIGH: 'High', MED: 'Medium', LOW: 'Low', INFO: 'Info' };
+const SEV_IBM: Record<string, { color: string; label: string }> = {
+  CRIT: { color: '#FF8389', label: 'Critical' },
+  HIGH: { color: '#FF832B', label: 'High' },
+  MED: { color: '#F1C21B', label: 'Medium' },
+  LOW: { color: '#42BE65', label: 'Low' },
+  INFO: { color: '#4589FF', label: 'Info' },
+};
 
 const CODE_PATTERN_LABELS: Record<string, string> = {
   soql_in_loops: 'SOQL in Loops', dml_in_loops: 'DML in Loops', hardcoded_ids: 'Hardcoded IDs',
@@ -27,24 +34,56 @@ const CODE_PATTERN_LABELS: Record<string, string> = {
 
 type TabKey = 'overview' | 'findings' | 'code_quality' | 'coverage';
 
-function catScoreColor(score: number): string {
-  if (score >= 90) return '#10B981';
-  if (score >= 70) return '#22C55E';
-  if (score >= 50) return '#EAB308';
-  return '#EF4444';
+function scoreColor(s: number): string {
+  if (s >= 75) return '#42BE65';
+  if (s >= 50) return '#F1C21B';
+  return '#FA4D56';
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  PASS: { bg: 'bg-green-500/10', text: 'text-green-400', label: 'PASS' },
-  WARN: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', label: 'WARN' },
-  FAIL: { bg: 'bg-red-500/10', text: 'text-red-400', label: 'FAIL' },
-  SKIP: { bg: 'bg-gray-500/10', text: 'text-gray-500', label: 'SKIP' },
-  PENDING: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'PENDING' },
+function catScoreColor(score: number): string {
+  if (score >= 75) return '#42BE65';
+  if (score >= 50) return '#F1C21B';
+  return '#FF8389';
+}
+
+const STATUS_IBM: Record<string, { bg: string; color: string; label: string }> = {
+  PASS: { bg: '#42BE6520', color: '#42BE65', label: 'PASS' },
+  WARN: { bg: '#F1C21B20', color: '#F1C21B', label: 'WARN' },
+  FAIL: { bg: '#FA4D5620', color: '#FA4D56', label: 'FAIL' },
+  SKIP: { bg: '#6F6F6F20', color: '#8D8D8D', label: 'SKIP' },
+  PENDING: { bg: '#4589FF20', color: '#4589FF', label: 'PENDING' },
 };
 
+const S = getColors('blue');
+
+function CarbonTile({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return (
+    <div
+      className={className}
+      style={{ background: S.gray90, borderBottom: `1px solid ${S.gray80}`, ...style }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CarbonTag({ text, color, type = 'default' }: { text: string; color: string; type?: 'default' | 'outline' }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 text-[12px] font-normal"
+      style={type === 'outline'
+        ? { border: `1px solid ${color}`, color, background: 'transparent' }
+        : { background: `${color}30`, color }
+      }
+    >
+      {text}
+    </span>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_STYLES[status] || STATUS_STYLES.PENDING;
-  return <span className={`${s.bg} ${s.text} text-[9px] font-bold px-1.5 py-0.5 rounded uppercase`}>{s.label}</span>;
+  const s = STATUS_IBM[status] || STATUS_IBM.PENDING;
+  return <CarbonTag text={s.label} color={s.color} />;
 }
 
 function ScoringMethodologyModal({ open, onClose, categoryDetails, catData }: {
@@ -55,71 +94,96 @@ function ScoringMethodologyModal({ open, onClose, categoryDetails, catData }: {
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.65)' }} onClick={onClose}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
         transition={{ duration: 0.2 }}
-        className="relative w-full max-w-2xl max-h-[80vh] overflow-y-auto mx-4 bg-surface border border-white/[0.08] rounded-xl shadow-2xl"
+        className="w-full max-w-2xl max-h-[80vh] overflow-y-auto mx-4"
+        style={{ background: S.gray90, border: `1px solid ${S.gray70}` }}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-surface/95 backdrop-blur-md border-b border-white/[0.06] px-6 py-4 flex items-center justify-between z-10">
-          <h3 className="text-sm font-bold text-gray-200 tracking-wide">Scoring Methodology</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/[0.06] transition-colors">
-            <X className="w-4 h-4 text-gray-400" />
+        <div className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between" style={{ background: S.gray90, borderBottom: `1px solid ${S.gray80}` }}>
+          <h3 className="text-[16px] font-semibold" style={{ color: S.gray10, fontFamily: '"IBM Plex Sans", sans-serif' }}>Scoring Methodology</h3>
+          <button onClick={onClose} className="p-1 transition-colors" style={{ color: S.gray50 }}
+            onMouseEnter={e => (e.currentTarget.style.color = S.gray10)}
+            onMouseLeave={e => (e.currentTarget.style.color = S.gray50)}
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5 text-[12px] text-gray-400 leading-relaxed">
+        <div className="px-6 py-5 space-y-5">
           <div>
-            <h5 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">How We Score</h5>
-            <p>Each of the <strong className="text-gray-300">294 parameters</strong> is individually assessed as <span className="text-green-400 font-semibold">PASS</span> (1.0), <span className="text-yellow-400 font-semibold">WARN</span> (0.5), <span className="text-red-400 font-semibold">FAIL</span> (0.0), or <span className="text-gray-500 font-semibold">SKIP</span> (excluded).</p>
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>How We Score</h5>
+            <p className="text-[14px] leading-relaxed" style={{ color: S.gray30 }}>
+              Each of the <strong style={{ color: S.gray10 }}>294 parameters</strong> is individually assessed as{' '}
+              <span style={{ color: S.supportSuccess }}>PASS</span> (1.0),{' '}
+              <span style={{ color: S.supportWarning }}>WARN</span> (0.5),{' '}
+              <span style={{ color: S.supportError }}>FAIL</span> (0.0), or{' '}
+              <span style={{ color: S.gray50 }}>SKIP</span> (excluded).
+            </p>
           </div>
           <div>
-            <h5 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">Category Score Formula</h5>
-            <div className="bg-white/[0.03] rounded-lg p-3 font-mono text-[11px]">
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Category Score Formula</h5>
+            <div className="p-3 font-mono text-[12px]" style={{ background: S.gray80, color: S.gray20 }}>
               Category Score = (Sum of assessable parameter scores / Count of assessed parameters) &times; 100
             </div>
-            <p className="mt-2">SKIP and PENDING parameters are excluded from the denominator, so categories aren't penalized for parameters the tool cannot assess.</p>
+            <p className="mt-2 text-[13px]" style={{ color: S.gray40 }}>
+              SKIP and PENDING parameters are excluded from the denominator, so categories aren't penalized for parameters the tool cannot assess.
+            </p>
           </div>
           <div>
-            <h5 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">Overall Health Score Formula</h5>
-            <div className="bg-white/[0.03] rounded-lg p-3 font-mono text-[11px]">
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Overall Health Score Formula</h5>
+            <div className="p-3 font-mono text-[12px]" style={{ background: S.gray80, color: S.gray20 }}>
               Health Score = &Sigma; (Category Score &times; Category Weight) / 100
             </div>
           </div>
           <div>
-            <h5 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">Category Weights</h5>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Category Weights</h5>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-0">
               {categoryDetails.length > 0 ? categoryDetails.map(c => (
-                <div key={c.key} className="flex items-center justify-between bg-white/[0.02] rounded px-2 py-1">
-                  <span className="text-gray-400 truncate text-[10px]">{c.label}</span>
-                  <span className="text-accent-light font-bold text-[10px] ml-2">{c.weight}%</span>
+                <div key={c.key} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${S.gray80}`, borderRight: `1px solid ${S.gray80}` }}>
+                  <span className="text-[12px] truncate" style={{ color: S.gray30 }}>{c.label}</span>
+                  <span className="text-[12px] font-semibold ml-2" style={{ color: S.blue40 }}>{c.weight}%</span>
                 </div>
               )) : catData.map(c => (
-                <div key={c.name} className="flex items-center justify-between bg-white/[0.02] rounded px-2 py-1">
-                  <span className="text-gray-400 truncate text-[10px]">{c.name}</span>
+                <div key={c.name} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${S.gray80}`, borderRight: `1px solid ${S.gray80}` }}>
+                  <span className="text-[12px] truncate" style={{ color: S.gray30 }}>{c.name}</span>
                 </div>
               ))}
             </div>
           </div>
           <div>
-            <h5 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">Scoring Sources</h5>
-            <ul className="space-y-1 list-disc list-inside">
-              <li><strong className="text-gray-300">Deterministic</strong> — Scored directly from collected data (SOQL, Tooling API, code analysis, metadata counts)</li>
-              <li><strong className="text-gray-300">AI Inference</strong> — Scored by Gemini AI when objective thresholds aren't possible</li>
-              <li><strong className="text-gray-300">Manual Review</strong> — Requires external tools or human review (excluded from scoring)</li>
-            </ul>
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Scoring Sources</h5>
+            <div className="space-y-0">
+              {[
+                { label: 'Deterministic', desc: 'Scored directly from collected data (SOQL, Tooling API, code analysis, metadata counts)', color: S.supportSuccess },
+                { label: 'AI Inference', desc: 'Scored by Gemini AI when objective thresholds aren\'t possible', color: S.purple40 },
+                { label: 'Manual Review', desc: 'Requires external tools or human review (excluded from scoring)', color: S.gray50 },
+              ].map(src => (
+                <div key={src.label} className="flex gap-3 px-3 py-2.5" style={{ borderBottom: `1px solid ${S.gray80}` }}>
+                  <div className="w-1 flex-shrink-0 mt-0.5" style={{ background: src.color, height: 14 }} />
+                  <div>
+                    <span className="text-[13px] font-semibold block" style={{ color: S.gray10 }}>{src.label}</span>
+                    <span className="text-[12px]" style={{ color: S.gray40 }}>{src.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="pt-3 border-t border-white/[0.06]">
+          <div className="pt-3" style={{ borderTop: `1px solid ${S.gray80}` }}>
             <a
               href="https://www.pwc.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-accent-light hover:text-accent text-[11px] font-semibold transition-colors"
+              className="inline-flex items-center gap-1.5 text-[13px] transition-colors"
+              style={{ color: S.blue40 }}
+              onMouseEnter={e => (e.currentTarget.style.color = S.blue20)}
+              onMouseLeave={e => (e.currentTarget.style.color = S.blue40)}
             >
-              Learn more about our methodology <ExternalLink className="w-3 h-3" />
+              Learn more about our methodology <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>
@@ -138,7 +202,8 @@ export default function ScanDetail() {
   const [methodologyOpen, setMethodologyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const navigate = useNavigate();
-  const { toast } = useApp();
+  const { state, toast } = useApp();
+  const C = getColors(state.accentColor);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -183,30 +248,55 @@ export default function ScanDetail() {
   if (loading) {
     return (
       <PageTransition>
-        <div className="space-y-4">
-          <SkeletonCard />
-          <div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}</div>
-          <div className="grid grid-cols-3 gap-4"><SkeletonChart /><SkeletonChart /><SkeletonChart /></div>
+        <div>
+          <div className="animate-pulse" style={{ background: C.gray90, height: 80, borderBottom: `1px solid ${C.gray80}` }} />
+          <div className="grid grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="animate-pulse p-5" style={{ background: C.gray90, height: 100, borderRight: i < 3 ? `1px solid ${C.gray80}` : undefined, borderBottom: `1px solid ${C.gray80}` }} />
+            ))}
+          </div>
+          <div className="grid grid-cols-2">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="animate-pulse p-5" style={{ background: C.gray90, height: 240, borderRight: i < 1 ? `1px solid ${C.gray80}` : undefined, borderBottom: `1px solid ${C.gray80}` }} />
+            ))}
+          </div>
         </div>
       </PageTransition>
     );
   }
 
   if (!scan) {
-    return <PageTransition><div className="text-center py-12 text-gray-500">Scan not found.</div></PageTransition>;
+    return (
+      <PageTransition>
+        <div className="px-6 pt-5 pb-4" style={{ background: C.gray100 }}>
+          <div className="flex items-center gap-2 mb-1">
+            <button onClick={() => navigate('/scans')} className="text-[12px] transition-colors" style={{ color: C.blue40 }}>Scans</button>
+            <span style={{ color: C.gray50 }}>/</span>
+            <span className="text-[12px]" style={{ color: C.gray10 }}>Not Found</span>
+          </div>
+        </div>
+        <div className="py-16 text-center text-[14px]" style={{ color: C.gray50 }}>Scan not found.</div>
+      </PageTransition>
+    );
   }
 
   if (scan.status === 'running') {
     return (
       <PageTransition>
-        <button onClick={() => navigate('/scans')} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-accent-light transition-colors mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back to Scans
-        </button>
-        <GlassCard className="p-8 text-center">
-          <div className="w-12 h-12 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-200">Health Scan In Progress</h3>
-          <p className="text-sm text-gray-500 mt-2">Live updates are being processed. This page will refresh when complete.</p>
-        </GlassCard>
+        <div className="px-6 pt-5 pb-4" style={{ background: C.gray100 }}>
+          <div className="flex items-center gap-2 mb-1">
+            <button onClick={() => navigate('/scans')} className="text-[12px] transition-colors" style={{ color: C.blue40 }}>Scans</button>
+            <span style={{ color: C.gray50 }}>/</span>
+            <span className="text-[12px]" style={{ color: C.gray10 }}>In Progress</span>
+          </div>
+          <h1 className="text-[28px] font-light tracking-tight mt-2" style={{ color: C.white, fontFamily: '"IBM Plex Sans", sans-serif' }}>
+            Health Scan In Progress
+          </h1>
+        </div>
+        <CarbonTile className="p-8 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: C.blue40 }} />
+          <p className="text-[14px]" style={{ color: C.gray30 }}>Live updates are being processed. This page will refresh when complete.</p>
+        </CarbonTile>
       </PageTransition>
     );
   }
@@ -274,7 +364,6 @@ export default function ScanDetail() {
 
   return (
     <PageTransition>
-      {/* Scoring Methodology Modal */}
       <AnimatePresence>
         {methodologyOpen && (
           <ScoringMethodologyModal
@@ -286,311 +375,310 @@ export default function ScanDetail() {
         )}
       </AnimatePresence>
 
-      {/* Top Bar */}
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={() => navigate('/scans')} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-accent-light transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back to Scans
-        </button>
-        <Button variant="secondary" size="sm" icon={<Download className="w-3.5 h-3.5" />} onClick={handleExport}>
-          Export PDF
-        </Button>
-      </div>
-
-      {/* Hero Header -- IBM structured style */}
-      <div className="mb-6 pb-6 border-b-2 border-white/[0.06]">
-        <div className="flex items-end gap-6 flex-wrap">
-          <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-black tracking-tighter font-mono" style={{ color: scoreColor(hs) }}>
-              {hs}
-            </span>
-            <span
-              className="text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded"
-              style={{
-                color: scoreColor(hs),
-                background: scoreColor(hs) + '15',
-                border: `1px solid ${scoreColor(hs)}30`,
-              }}
+      <div>
+        {/* Page Header */}
+        <div className="px-6 pt-5 pb-4" style={{ background: C.gray100 }}>
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              onClick={() => navigate('/scans')}
+              className="text-[12px] font-normal transition-colors flex items-center gap-1"
+              style={{ color: C.blue40 }}
+              onMouseEnter={e => (e.currentTarget.style.color = C.blue20)}
+              onMouseLeave={e => (e.currentTarget.style.color = C.blue40)}
             >
-              {scoreGrade(hs)}
-            </span>
+              <ArrowLeft className="w-3 h-3" />
+              Scans
+            </button>
+            <span style={{ color: C.gray50 }}>/</span>
+            <span className="text-[12px] font-normal" style={{ color: C.gray10 }}>{scan.org_alias}</span>
+            <span style={{ color: C.gray50 }}>/</span>
+            <span className="text-[12px] font-normal" style={{ color: C.gray10 }}>Report</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-gray-100 tracking-tight mb-1">Org Health Report</h2>
-            <div className="flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
-              <span className="font-mono text-gray-400">{scan.org_alias}</span>
-              <span className="text-white/10">|</span>
-              <span>{fmtDate(scan.started_at)}</span>
-              <span className="text-white/10">|</span>
-              <span>{fmtNum(scan.total_components || 0)} components</span>
-              {paramCoverage && (
-                <>
-                  <span className="text-white/10">|</span>
-                  <span>{paramCoverage.assessed}/{paramCoverage.total} parameters</span>
-                </>
-              )}
+          <div className="flex items-end justify-between mt-1">
+            <div>
+              <h1 className="text-[28px] font-light tracking-tight" style={{ color: C.white, fontFamily: '"IBM Plex Sans", sans-serif' }}>
+                Org Health Report
+              </h1>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-[13px]" style={{ color: C.gray50 }}>{fmtDate(scan.started_at)}</span>
+                <span style={{ color: C.gray70 }}>|</span>
+                <span className="text-[13px]" style={{ color: C.gray50 }}>{fmtNum(scan.total_components || 0)} components</span>
+                {paramCoverage && (
+                  <>
+                    <span style={{ color: C.gray70 }}>|</span>
+                    <span className="text-[13px]" style={{ color: C.gray50 }}>{paramCoverage.assessed}/{paramCoverage.total} parameters assessed</span>
+                  </>
+                )}
+              </div>
             </div>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2.5 text-[14px] font-normal transition-colors"
+              style={{ background: C.blue60, color: C.white }}
+              onMouseEnter={e => (e.currentTarget.style.background = C.blue60h)}
+              onMouseLeave={e => (e.currentTarget.style.background = C.blue60)}
+            >
+              <Download className="w-4 h-4" />
+              Export PDF
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Metric Strip -- 4 compact tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <GlassCard className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Total Findings</div>
-              <div className="text-2xl font-black text-gray-100">{findings.length}</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">{findings.length - resolved} open</div>
+        {/* Health Score Hero Strip */}
+        <div className="grid grid-cols-4" style={{ borderBottom: `1px solid ${C.gray80}` }}>
+          <div className="px-5 py-5" style={{ background: C.gray90, borderRight: `1px solid ${C.gray80}` }}>
+            <span className="text-[12px] font-normal block mb-1" style={{ color: C.gray50 }}>Health Score</span>
+            <div className="flex items-baseline gap-3">
+              <span className="text-[42px] font-light tracking-tight" style={{ color: C.gray10, fontFamily: '"IBM Plex Sans", sans-serif' }}>
+                {hs}
+              </span>
+              <CarbonTag text={scoreGrade(hs)} color={scoreColor(hs)} />
             </div>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-yellow-500/10">
-              <AlertTriangle className="w-4 h-4 text-yellow-400" />
+            <div className="mt-2 h-1" style={{ background: C.gray80 }}>
+              <div className="h-full transition-all" style={{ width: `${Math.min(hs, 100)}%`, background: scoreColor(hs) }} />
             </div>
           </div>
-        </GlassCard>
 
-        <GlassCard className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Critical Issues</div>
-              <div className="text-2xl font-black" style={{ color: (scan.critical_count || 0) > 0 ? '#EF4444' : '#10B981' }}>
+          <div className="px-5 py-5" style={{ background: C.gray90, borderRight: `1px solid ${C.gray80}` }}>
+            <span className="text-[12px] font-normal block mb-1" style={{ color: C.gray50 }}>Total Findings</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[36px] font-light tracking-tight" style={{ color: C.gray10 }}>{findings.length}</span>
+            </div>
+            <span className="text-[12px]" style={{ color: C.gray50 }}>{findings.length - resolved} open</span>
+          </div>
+
+          <div className="px-5 py-5" style={{ background: C.gray90, borderRight: `1px solid ${C.gray80}` }}>
+            <span className="text-[12px] font-normal block mb-1" style={{ color: C.gray50 }}>Critical Issues</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[36px] font-light tracking-tight" style={{ color: (scan.critical_count || 0) > 0 ? C.supportError : C.gray10 }}>
                 {scan.critical_count || 0}
-              </div>
-              <div className="text-[10px] mt-0.5" style={{ color: (scan.critical_count || 0) > 0 ? '#EF4444' : '#6B7280' }}>
-                {(scan.critical_count || 0) > 0 ? 'Action required' : 'No critical issues'}
-              </div>
+              </span>
+              {(scan.critical_count || 0) > 0 && <CarbonTag text="Action required" color={C.supportError} type="outline" />}
             </div>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-red-500/10">
-              <ShieldAlert className="w-4 h-4 text-red-400" />
-            </div>
+            <span className="text-[12px]" style={{ color: (scan.critical_count || 0) > 0 ? C.supportError : C.gray50 }}>
+              {(scan.critical_count || 0) > 0 ? 'Immediate attention needed' : 'No critical issues'}
+            </span>
           </div>
-        </GlassCard>
 
-        <GlassCard className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Resolution Rate</div>
-              <div className="text-2xl font-black text-emerald-400">{resolutionRate}%</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">{resolved}/{findings.length} resolved</div>
+          <div className="px-5 py-5" style={{ background: C.gray90 }}>
+            <span className="text-[12px] font-normal block mb-1" style={{ color: C.gray50 }}>Resolution Rate</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[36px] font-light tracking-tight" style={{ color: C.gray10 }}>{resolutionRate}%</span>
             </div>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-500/10">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            </div>
+            <span className="text-[12px]" style={{ color: C.gray50 }}>{resolved}/{findings.length} resolved</span>
           </div>
-        </GlassCard>
+        </div>
 
-        <GlassCard className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Coverage</div>
-              <div className="text-2xl font-black text-accent-light">{coveragePct ?? '—'}%</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">
-                {paramCoverage ? `${paramCoverage.assessed}/${paramCoverage.total} assessed` : 'N/A'}
-              </div>
-            </div>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-accent/10">
-              <Shield className="w-4 h-4 text-accent-light" />
-            </div>
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Charts Row -- 3 columns */}
-      <div className={`grid grid-cols-1 gap-4 mb-6 ${trendEntries.length > 0 ? 'lg:grid-cols-3' : 'md:grid-cols-2'}`}>
-        {/* Severity Distribution -- Horizontal bars */}
-        <GlassCard className="p-4">
-          <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Severity Distribution</h4>
-          <p className="text-[9px] text-gray-600 mb-3">Click to filter findings</p>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sevData} layout="vertical" margin={{ left: 0, right: 8, top: 0, bottom: 0 }}>
-                <XAxis type="number" tick={{ fill: '#6B7280', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 600 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={55}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 11 }}
-                  cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                />
-                <Bar
-                  dataKey="value"
-                  radius={[0, 3, 3, 0]}
-                  cursor="pointer"
-                  onClick={(_entry, index) => {
-                    const sev = sevData[index]?.label;
-                    if (sev) {
-                      setSevFilter(prev => prev === sev ? '' : sev);
-                      setActiveTab('findings');
-                    }
-                  }}
-                >
-                  {sevData.map(d => (
-                    <Cell key={d.name} fill={SEV_COLORS[d.name] + '60'} stroke={SEV_COLORS[d.name]} strokeWidth={1} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-
-        {/* Category Scores -- Horizontal bars (replacing radar) */}
-        <GlassCard className="p-4">
-          <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Category Scores</h4>
-          <p className="text-[9px] text-gray-600 mb-3">Sorted by risk (lowest first)</p>
-          {catBarData.length > 0 ? (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {catBarData.map(cat => (
-                <button
-                  key={cat.name}
-                  className="w-full flex items-center gap-2 text-[11px] group hover:bg-white/[0.02] rounded px-1 py-0.5 transition-colors"
-                  onClick={() => {
-                    setCatFilter(prev => prev === cat.name ? '' : cat.name);
-                    setActiveTab('findings');
-                  }}
-                >
-                  <span className="w-[100px] min-w-[80px] text-gray-400 truncate text-left text-[10px]" title={cat.name}>
-                    {cat.name}
-                  </span>
-                  <div className="flex-1 h-[6px] rounded-sm bg-white/[0.06] overflow-hidden">
-                    <div
-                      className="h-full rounded-sm transition-all"
-                      style={{ width: `${Math.min(cat.score, 100)}%`, background: catScoreColor(cat.score) }}
-                    />
-                  </div>
-                  <span className="min-w-[32px] text-right font-mono font-bold text-[10px]" style={{ color: catScoreColor(cat.score) }}>
-                    {cat.score.toFixed(0)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="h-48 flex items-center justify-center text-gray-600 text-xs">No category scores</div>
-          )}
-        </GlassCard>
-
-        {/* Limit Trends Sparklines */}
-        {trendEntries.length > 0 && (
-          <GlassCard className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Limit Trends</h4>
-              <span className="text-[9px] text-gray-600">7-day</span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-              {trendEntries.map(([key, data]) => {
-                const label = key.replace('trend_', '').replace('_7d', '').replace(/_/g, ' ');
-                const chartData = data.map((d: any) => ({
-                  date: d.CreatedDate ? new Date(d.CreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
-                  pct: d.PercentOfLimit__c ?? 0,
-                }));
-                const latestPct = chartData.length > 0 ? chartData[chartData.length - 1].pct : 0;
+        {/* Charts Row */}
+        <div className={`grid ${trendEntries.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {/* Severity Distribution */}
+          <CarbonTile className="p-5" style={{ borderRight: `1px solid ${C.gray80}` }}>
+            <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Severity Distribution</h4>
+            <p className="text-[12px] mb-4" style={{ color: C.gray50 }}>Click bars to filter findings</p>
+            <div className="space-y-3">
+              {sevData.filter(d => d.value > 0).map(d => {
+                const info = SEV_IBM[d.name];
+                const maxVal = Math.max(...sevData.map(s => s.value), 1);
+                const pct = (d.value / maxVal) * 100;
                 return (
-                  <div key={key} className="flex flex-col">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[8px] font-semibold uppercase tracking-wider text-gray-500 truncate" title={label}>
-                        {label.length > 16 ? label.substring(0, 14) + '..' : label}
-                      </span>
-                      <span className="text-[9px] font-mono font-bold" style={{ color: latestPct >= 80 ? '#EF4444' : latestPct >= 60 ? '#EAB308' : '#22C55E' }}>
-                        {latestPct.toFixed(0)}%
-                      </span>
+                  <button
+                    key={d.name}
+                    onClick={() => {
+                      setSevFilter(prev => prev === d.label ? '' : d.label);
+                      setActiveTab('findings');
+                    }}
+                    className="w-full text-left group"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <CarbonTag text={info.label} color={info.color} />
+                      <span className="text-[14px] font-normal" style={{ color: C.gray10 }}>{d.value}</span>
                     </div>
-                    <div className="h-10">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                          <Line
-                            type="monotone"
-                            dataKey="pct"
-                            stroke={latestPct >= 80 ? '#EF4444' : latestPct >= 60 ? '#EAB308' : '#22C55E'}
-                            strokeWidth={1.5}
-                            dot={false}
-                          />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: '#1F2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 9, padding: '4px 8px' }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
+                    <div className="h-1" style={{ background: C.gray80 }}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.6 }}
+                        className="h-full"
+                        style={{ background: info.color }}
+                      />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
+              {sevData.every(d => d.value === 0) && (
+                <div className="py-6 text-center text-[14px]" style={{ color: C.gray50 }}>No findings</div>
+              )}
             </div>
-          </GlassCard>
-        )}
-      </div>
+          </CarbonTile>
 
-      {/* Tab Navigation */}
-      <div className="border-b-2 border-white/[0.06] mb-6">
-        <div className="flex gap-0">
+          {/* Category Scores */}
+          <CarbonTile className="p-5" style={{ borderRight: trendEntries.length > 0 ? `1px solid ${C.gray80}` : undefined }}>
+            <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Category Scores</h4>
+            <p className="text-[12px] mb-4" style={{ color: C.gray50 }}>Sorted by risk (lowest first)</p>
+            {catBarData.length > 0 ? (
+              <div className="space-y-2.5 max-h-[220px] overflow-y-auto">
+                {catBarData.map(cat => {
+                  const barColor = catScoreColor(cat.score);
+                  return (
+                    <button
+                      key={cat.name}
+                      onClick={() => {
+                        setCatFilter(prev => prev === cat.name ? '' : cat.name);
+                        setActiveTab('findings');
+                      }}
+                      className="w-full text-left group"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[13px] group-hover:text-white transition-colors truncate" style={{ color: C.gray30 }}>{cat.name}</span>
+                        <span className="text-[13px] font-normal ml-2" style={{ color: barColor }}>{cat.score.toFixed(0)}/100</span>
+                      </div>
+                      <div className="h-1" style={{ background: C.gray80 }}>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(cat.score, 100)}%` }}
+                          transition={{ duration: 0.8 }}
+                          className="h-full"
+                          style={{ background: barColor }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-[14px]" style={{ color: C.gray50 }}>No category scores</div>
+            )}
+          </CarbonTile>
+
+          {/* Limit Trends */}
+          {trendEntries.length > 0 && (
+            <CarbonTile className="p-5">
+              <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Governor Limit Trends</h4>
+              <p className="text-[12px] mb-4" style={{ color: C.gray50 }}>7-day snapshot</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {trendEntries.map(([key, data]) => {
+                  const label = key.replace('trend_', '').replace('_7d', '').replace(/_/g, ' ');
+                  const chartData = data.map((d: any) => ({
+                    date: d.CreatedDate ? new Date(d.CreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+                    pct: d.PercentOfLimit__c ?? 0,
+                  }));
+                  const latestPct = chartData.length > 0 ? chartData[chartData.length - 1].pct : 0;
+                  const sparkColor = latestPct >= 80 ? C.supportError : latestPct >= 60 ? C.supportWarning : C.supportSuccess;
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider truncate" style={{ color: C.gray50 }} title={label}>
+                          {label.length > 16 ? label.substring(0, 14) + '..' : label}
+                        </span>
+                        <span className="text-[12px] font-semibold" style={{ color: sparkColor }}>{latestPct.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-10">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData}>
+                            <Line type="monotone" dataKey="pct" stroke={sparkColor} strokeWidth={1.5} dot={false} />
+                            <Tooltip contentStyle={{ backgroundColor: C.gray90, border: `1px solid ${C.gray70}`, borderRadius: 0, fontSize: 11, padding: '4px 8px' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CarbonTile>
+          )}
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex" style={{ background: C.gray100, borderBottom: `1px solid ${C.gray80}` }}>
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative px-5 py-3 text-xs font-semibold tracking-wide transition-colors ${
-                activeTab === tab.key
-                  ? 'text-accent-light'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
+              className="px-5 py-3 text-[14px] font-normal transition-colors relative"
+              style={{ color: activeTab === tab.key ? C.white : C.gray50 }}
             >
               <span>{tab.label}</span>
               {tab.count !== undefined && (
-                <span className={`ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                  activeTab === tab.key ? 'bg-accent/15 text-accent-light' : 'bg-white/[0.04] text-gray-500'
-                }`}>
+                <span className="ml-1.5 text-[12px] px-1.5 py-0.5"
+                  style={{
+                    background: activeTab === tab.key ? `${C.blue60}30` : `${C.gray70}`,
+                    color: activeTab === tab.key ? C.blue40 : C.gray40,
+                  }}
+                >
                   {tab.count}
                 </span>
               )}
               {activeTab === tab.key && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent"
+                  className="absolute bottom-0 left-0 right-0 h-[3px]"
+                  style={{ background: C.blue60 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <AnimatePresence mode="wait">
-        {/* ===== OVERVIEW TAB ===== */}
-        {activeTab === 'overview' && (
-          <motion.div
-            key="tab-overview"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-            className="space-y-6"
-          >
-            {/* Executive Summary */}
-            <GlassCard className="p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Executive Summary</h4>
-              </div>
-              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{scan.summary || 'No summary available.'}</p>
-            </GlassCard>
-
-            {/* Category Score Breakdown */}
-            {catData.length > 0 && (
-              <GlassCard className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-4 h-4 text-accent-light" />
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Category Score Breakdown</h4>
-                  <button
-                    onClick={() => setMethodologyOpen(true)}
-                    className="ml-1 w-5 h-5 rounded-full border border-white/[0.1] flex items-center justify-center hover:border-accent/40 hover:bg-accent/5 transition-colors group"
-                    title="View scoring methodology"
-                  >
-                    <Info className="w-3 h-3 text-gray-500 group-hover:text-accent-light transition-colors" />
-                  </button>
-                  <span className="text-[9px] text-gray-600 ml-1">Click to expand parameter details</span>
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {/* ===== OVERVIEW TAB ===== */}
+          {activeTab === 'overview' && (
+            <motion.div
+              key="tab-overview"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Executive Summary */}
+              <CarbonTile className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: C.purple60 }}>
+                    <span className="text-[10px] font-bold text-white">AI</span>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[12px] font-semibold block mb-1" style={{ color: C.purple40 }}>AI-Generated Summary</span>
+                    <p className="text-[14px] leading-relaxed whitespace-pre-wrap" style={{ color: C.gray30 }}>
+                      {scan.summary || 'No summary available for this scan.'}
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
+              </CarbonTile>
+
+              {/* Category Score Breakdown */}
+              {catData.length > 0 && (
+                <CarbonTile className="p-0">
+                  <div className="flex items-center justify-between px-5 py-3" style={{ background: C.gray80 }}>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" style={{ color: C.blue40 }} />
+                      <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Category Score Breakdown</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px]" style={{ color: C.gray50 }}>Click rows to expand parameter details</span>
+                      <button
+                        onClick={() => setMethodologyOpen(true)}
+                        className="flex items-center gap-1.5 text-[12px] transition-colors"
+                        style={{ color: C.blue40 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = C.blue20)}
+                        onMouseLeave={e => (e.currentTarget.style.color = C.blue40)}
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                        Methodology
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Category Table Header */}
+                  <div className="grid grid-cols-[28px_1fr_60px_1fr_50px_90px] gap-2 px-5 py-2 text-[12px] font-semibold uppercase tracking-wider" style={{ background: C.gray80, color: C.gray30, borderBottom: `1px solid ${C.gray70}` }}>
+                    <span></span>
+                    <span>Category</span>
+                    <span>Weight</span>
+                    <span>Score</span>
+                    <span className="text-right">Value</span>
+                    <span className="text-right">Breakdown</span>
+                  </div>
+
                   {(categoryDetails.length > 0
                     ? categoryDetails
                     : catData.map(c => ({ key: c.name, label: c.name, weight: 0, params: 0, score: c.score, assessed: 0, passed: 0, warned: 0, failed: 0, skipped: 0, pending: 0 }))
@@ -598,40 +686,51 @@ export default function ScanDetail() {
                     const key = cat.key;
                     const isOpen = expandedCats.has(key);
                     const catParams = paramsByCategory[key] || [];
+                    const barColor = catScoreColor(cat.score);
                     return (
-                      <div key={key} className="border border-white/[0.04] rounded-lg overflow-hidden">
-                        <button onClick={() => toggleCat(key)} className="w-full flex items-center gap-3 text-[12px] px-3 py-2.5 hover:bg-white/[0.02] transition-colors">
-                          {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-                          <span className="w-[200px] min-w-[140px] text-gray-300 truncate text-left font-medium" title={cat.label}>{cat.label}</span>
-                          {cat.weight > 0 && <span className="text-[9px] text-gray-600 shrink-0 font-mono">{cat.weight}%</span>}
-                          <div className="flex-1 h-[6px] rounded-sm bg-white/[0.06] overflow-hidden">
-                            <div className="h-full rounded-sm transition-all" style={{ width: `${Math.min(cat.score, 100)}%`, background: catScoreColor(cat.score) }} />
+                      <div key={key}>
+                        <button
+                          onClick={() => toggleCat(key)}
+                          className="w-full grid grid-cols-[28px_1fr_60px_1fr_50px_90px] gap-2 items-center px-5 py-3 text-left transition-colors hover:bg-[#353535]"
+                          style={{ borderBottom: `1px solid ${C.gray80}` }}
+                        >
+                          {isOpen
+                            ? <ChevronDown className="w-4 h-4" style={{ color: C.gray50 }} />
+                            : <ChevronRight className="w-4 h-4" style={{ color: C.gray50 }} />
+                          }
+                          <span className="text-[13px] truncate" style={{ color: C.gray10 }} title={cat.label}>{cat.label}</span>
+                          <span className="text-[12px] font-normal" style={{ color: C.gray50 }}>{cat.weight > 0 ? `${cat.weight}%` : '—'}</span>
+                          <div className="h-1" style={{ background: C.gray80 }}>
+                            <div className="h-full transition-all" style={{ width: `${Math.min(cat.score, 100)}%`, background: barColor }} />
                           </div>
-                          <span className="min-w-[40px] text-right font-mono font-bold text-[11px] shrink-0" style={{ color: catScoreColor(cat.score) }}>
+                          <span className="text-[13px] font-semibold text-right" style={{ color: barColor }}>
                             {typeof cat.score === 'number' ? cat.score.toFixed(1) : cat.score}
                           </span>
-                          {cat.assessed > 0 && (
-                            <div className="flex gap-1.5 text-[9px] shrink-0 font-mono">
-                              {cat.passed > 0 && <span className="text-green-400">{cat.passed}P</span>}
-                              {cat.warned > 0 && <span className="text-yellow-400">{cat.warned}W</span>}
-                              {cat.failed > 0 && <span className="text-red-400">{cat.failed}F</span>}
-                            </div>
-                          )}
+                          <div className="flex justify-end gap-1.5">
+                            {cat.assessed > 0 && (
+                              <>
+                                {cat.passed > 0 && <CarbonTag text={`${cat.passed}P`} color={C.supportSuccess} />}
+                                {cat.warned > 0 && <CarbonTag text={`${cat.warned}W`} color={C.supportWarning} />}
+                                {cat.failed > 0 && <CarbonTag text={`${cat.failed}F`} color={C.supportError} />}
+                              </>
+                            )}
+                          </div>
                         </button>
+
                         <AnimatePresence initial={false}>
                           {isOpen && catParams.length > 0 && (
                             <motion.div key={`cat-${key}`} initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                              <div className="px-3 pb-3 space-y-0.5">
-                                <div className="grid grid-cols-[40px_1fr_60px_1fr_100px] gap-2 text-[9px] text-gray-600 uppercase tracking-wider font-bold py-1.5 border-b border-white/[0.06]">
+                              <div style={{ background: C.gray100 }}>
+                                <div className="grid grid-cols-[50px_1fr_70px_1fr_120px] gap-2 px-5 py-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.gray50, borderBottom: `1px solid ${C.gray80}` }}>
                                   <span>ID</span><span>Parameter</span><span>Status</span><span>Reason</span><span>Data</span>
                                 </div>
                                 {catParams.map(p => (
-                                  <div key={p.id} className="grid grid-cols-[40px_1fr_60px_1fr_100px] gap-2 text-[11px] py-1.5 border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors">
-                                    <span className="text-gray-600 font-mono">{p.id}</span>
-                                    <span className="text-gray-300 truncate" title={p.name}>{p.name}</span>
+                                  <div key={p.id} className="grid grid-cols-[50px_1fr_70px_1fr_120px] gap-2 px-5 py-2 items-center transition-colors hover:bg-[#1c1c1c]" style={{ borderBottom: `1px solid ${C.gray80}20` }}>
+                                    <span className="text-[12px] font-mono" style={{ color: C.gray60 }}>{p.id}</span>
+                                    <span className="text-[12px] truncate" style={{ color: C.gray20 }} title={p.name}>{p.name}</span>
                                     <StatusBadge status={p.status} />
-                                    <span className="text-gray-500 truncate" title={p.reason}>{p.reason}</span>
-                                    <span className="text-gray-600 font-mono truncate" title={p.data_value}>{p.data_value || '—'}</span>
+                                    <span className="text-[12px] truncate" style={{ color: C.gray40 }} title={p.reason}>{p.reason}</span>
+                                    <span className="text-[12px] font-mono truncate" style={{ color: C.gray50 }} title={p.data_value}>{p.data_value || '—'}</span>
                                   </div>
                                 ))}
                               </div>
@@ -639,248 +738,244 @@ export default function ScanDetail() {
                           )}
                           {isOpen && catParams.length === 0 && (
                             <motion.div key={`cat-empty-${key}`} initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                              <div className="px-3 pb-3 text-[11px] text-gray-600 italic">No per-parameter details available for this scan.</div>
+                              <div className="px-5 py-4 text-[13px]" style={{ background: C.gray100, color: C.gray50, borderBottom: `1px solid ${C.gray80}` }}>
+                                No per-parameter details available for this scan.
+                              </div>
                             </motion.div>
                           )}
                         </AnimatePresence>
                       </div>
                     );
                   })}
-                </div>
-              </GlassCard>
-            )}
-          </motion.div>
-        )}
+                </CarbonTile>
+              )}
+            </motion.div>
+          )}
 
-        {/* ===== FINDINGS TAB ===== */}
-        {activeTab === 'findings' && (
-          <motion.div
-            key="tab-findings"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-          >
-            {/* Active Filters */}
-            {(sevFilter || catFilter) && (
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Filters:</span>
-                {sevFilter && (
-                  <button onClick={() => setSevFilter('')} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent-light border border-accent/20 hover:bg-accent/20 transition-colors">
-                    {sevFilter} <X className="w-2.5 h-2.5 ml-0.5" />
-                  </button>
-                )}
-                {catFilter && (
-                  <button onClick={() => setCatFilter('')} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent-light border border-accent/20 hover:bg-accent/20 transition-colors">
-                    {catFilter} <X className="w-2.5 h-2.5 ml-0.5" />
-                  </button>
-                )}
-              </div>
-            )}
-            <FindingsTable
-              findings={findings}
-              onResolve={handleResolve}
-              initialSeverityFilter={sevFilter}
-              initialCategoryFilter={catFilter}
-            />
-          </motion.div>
-        )}
-
-        {/* ===== CODE QUALITY TAB ===== */}
-        {activeTab === 'code_quality' && codeAnalysis && codeAnalysis.status === 'completed' && (
-          <motion.div
-            key="tab-code-quality"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-            className="space-y-4"
-          >
-            {/* Summary strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <GlassCard className="p-4 text-center">
-                <div className="text-2xl font-black text-gray-100">{codeAnalysis.files_scanned}</div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">Files Scanned</div>
-              </GlassCard>
-              <GlassCard className="p-4 text-center">
-                <div className="text-2xl font-black" style={{ color: codeAnalysis.issues_found > 0 ? '#EF4444' : '#10B981' }}>
-                  {codeAnalysis.issues_found}
-                </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">Total Issues</div>
-              </GlassCard>
-              {Object.entries(codeAnalysis.severity_counts || {}).filter(([, count]) => count > 0).slice(0, 2).map(([sev, count]) => (
-                <GlassCard key={sev} className="p-4 text-center">
-                  <div className="text-2xl font-black" style={{ color: sev === 'Critical' ? '#EF4444' : sev === 'High' ? '#F97316' : sev === 'Medium' ? '#EAB308' : '#22C55E' }}>
-                    {count}
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">{sev}</div>
-                </GlassCard>
-              ))}
-            </div>
-
-            {/* Issues by Pattern */}
-            <GlassCard className="p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Code2 className="w-4 h-4 text-accent-light" />
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Issues by Anti-Pattern</h4>
-              </div>
-              <div className="space-y-2">
-                {Object.entries(codeAnalysis.findings_by_pattern || {}).sort((a, b) => b[1] - a[1]).map(([pat, count]) => {
-                  const maxCount = Math.max(...Object.values(codeAnalysis!.findings_by_pattern || {}));
-                  return (
-                    <div key={pat} className="flex items-center gap-3 text-[12px]">
-                      <span className="w-[180px] min-w-[140px] text-gray-400">{CODE_PATTERN_LABELS[pat] || pat}</span>
-                      <div className="flex-1 h-[6px] rounded-sm bg-white/[0.06] overflow-hidden">
-                        <div
-                          className="h-full rounded-sm bg-red-500/50"
-                          style={{ width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%` }}
-                        />
-                      </div>
-                      <span className="min-w-[28px] text-right font-mono font-bold text-gray-400">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </GlassCard>
-
-            {/* Severity Breakdown */}
-            {Object.entries(codeAnalysis.severity_counts || {}).some(([, count]) => count > 0) && (
-              <GlassCard className="p-5">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Severity Breakdown</h4>
-                <div className="flex gap-3">
-                  {Object.entries(codeAnalysis.severity_counts || {}).map(([sev, count]) => (
-                    count > 0 && (
-                      <div
-                        key={sev}
-                        className="px-3 py-2 rounded text-[11px]"
-                        style={{
-                          background: sev === 'Critical' ? 'rgba(239,68,68,0.1)' : sev === 'High' ? 'rgba(249,115,22,0.1)' : sev === 'Medium' ? 'rgba(234,179,8,0.1)' : 'rgba(34,197,94,0.1)',
-                        }}
+          {/* ===== FINDINGS TAB ===== */}
+          {activeTab === 'findings' && (
+            <motion.div
+              key="tab-findings"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <CarbonTile className="p-5">
+                {/* Active Filters */}
+                {(sevFilter || catFilter) && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-[12px] font-semibold" style={{ color: C.gray50 }}>Active filters:</span>
+                    {sevFilter && (
+                      <button
+                        onClick={() => setSevFilter('')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] transition-colors"
+                        style={{ border: `1px solid ${C.blue40}`, color: C.blue40, background: `${C.blue60}15` }}
                       >
-                        <span className="font-bold" style={{ color: sev === 'Critical' ? '#EF4444' : sev === 'High' ? '#F97316' : sev === 'Medium' ? '#EAB308' : '#22C55E' }}>
-                          {count}
-                        </span>
-                        <span className="ml-1.5 text-gray-500">{sev}</span>
-                      </div>
-                    )
-                  ))}
+                        {sevFilter} <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    {catFilter && (
+                      <button
+                        onClick={() => setCatFilter('')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] transition-colors"
+                        style={{ border: `1px solid ${C.blue40}`, color: C.blue40, background: `${C.blue60}15` }}
+                      >
+                        {catFilter} <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <FindingsTable
+                  findings={findings}
+                  onResolve={handleResolve}
+                  initialSeverityFilter={sevFilter}
+                  initialCategoryFilter={catFilter}
+                />
+              </CarbonTile>
+            </motion.div>
+          )}
+
+          {/* ===== CODE QUALITY TAB ===== */}
+          {activeTab === 'code_quality' && codeAnalysis && codeAnalysis.status === 'completed' && (
+            <motion.div
+              key="tab-code-quality"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Summary KPIs */}
+              <div className="grid grid-cols-4">
+                {[
+                  { label: 'Files Scanned', value: codeAnalysis.files_scanned, color: C.gray10 },
+                  { label: 'Total Issues', value: codeAnalysis.issues_found, color: codeAnalysis.issues_found > 0 ? C.supportError : C.supportSuccess },
+                  ...Object.entries(codeAnalysis.severity_counts || {}).filter(([, count]) => count > 0).slice(0, 2).map(([sev, count]) => ({
+                    label: sev,
+                    value: count,
+                    color: sev === 'Critical' ? C.red40 : sev === 'High' ? C.orange40 : sev === 'Medium' ? C.yellow30 : C.green40,
+                  })),
+                ].map((kpi, i, arr) => (
+                  <CarbonTile key={kpi.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${C.gray80}` : undefined }}>
+                    <span className="text-[12px] font-normal block mb-1" style={{ color: C.gray50 }}>{kpi.label}</span>
+                    <span className="text-[32px] font-light tracking-tight" style={{ color: kpi.color }}>{kpi.value}</span>
+                  </CarbonTile>
+                ))}
+              </div>
+
+              {/* Issues by Anti-Pattern */}
+              <CarbonTile className="p-0">
+                <div className="flex items-center gap-2 px-5 py-3" style={{ background: C.gray80 }}>
+                  <Code2 className="w-4 h-4" style={{ color: C.blue40 }} />
+                  <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Issues by Anti-Pattern</span>
                 </div>
-              </GlassCard>
-            )}
-          </motion.div>
-        )}
-
-        {/* ===== COVERAGE TAB ===== */}
-        {activeTab === 'coverage' && paramCoverage && (
-          <motion.div
-            key="tab-coverage"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-            className="space-y-4"
-          >
-            {/* Coverage summary cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <GlassCard className="p-3 text-center">
-                <div className="text-xl font-black text-green-400">{paramCoverage.assessed}</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500 mt-0.5">Assessed</div>
-              </GlassCard>
-              <GlassCard className="p-3 text-center">
-                <div className="text-xl font-black text-emerald-400">{paramCoverage.deterministic_count ?? '—'}</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500 mt-0.5">Deterministic</div>
-              </GlassCard>
-              <GlassCard className="p-3 text-center">
-                <div className="text-xl font-black text-blue-400">{paramCoverage.ai_inferred_count ?? '—'}</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500 mt-0.5">AI Inferred</div>
-              </GlassCard>
-              <GlassCard className="p-3 text-center">
-                <div className="text-xl font-black text-yellow-400">{paramCoverage.pending ?? '—'}</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500 mt-0.5">Pending</div>
-              </GlassCard>
-              <GlassCard className="p-3 text-center">
-                <div className="text-xl font-black text-gray-400">{paramCoverage.not_assessable}</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500 mt-0.5">Manual Only</div>
-              </GlassCard>
-              <GlassCard className="p-3 text-center">
-                <div className="text-xl font-black text-accent-light">{coveragePct}%</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500 mt-0.5">Coverage</div>
-              </GlassCard>
-            </div>
-
-            {/* Stacked coverage bar */}
-            <GlassCard className="p-5">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Assessment Breakdown</h4>
-              <div className="h-4 rounded bg-white/[0.06] overflow-hidden flex mb-2">
-                {(paramCoverage.deterministic_count ?? 0) > 0 && (
-                  <div className="h-full bg-emerald-500/60" style={{ width: `${(paramCoverage.deterministic_count ?? 0) / paramCoverage.total * 100}%` }} title={`Deterministic: ${paramCoverage.deterministic_count}`} />
-                )}
-                {(paramCoverage.ai_inferred_count ?? 0) > 0 && (
-                  <div className="h-full bg-blue-500/60" style={{ width: `${(paramCoverage.ai_inferred_count ?? 0) / paramCoverage.total * 100}%` }} title={`AI Inferred: ${paramCoverage.ai_inferred_count}`} />
-                )}
-                {(paramCoverage.pending ?? 0) > 0 && (
-                  <div className="h-full bg-yellow-500/30" style={{ width: `${(paramCoverage.pending ?? 0) / paramCoverage.total * 100}%` }} title={`Pending: ${paramCoverage.pending}`} />
-                )}
-              </div>
-              <div className="flex gap-5 text-[9px]">
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/60" /> Deterministic</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500/60" /> AI Inferred</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-500/30" /> Pending</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-500/30" /> Skipped / Manual</span>
-              </div>
-            </GlassCard>
-
-            {/* Per-category coverage */}
-            {categoryDetails.length > 0 && (
-              <GlassCard className="p-5">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Coverage by Category</h4>
-                <div className="space-y-1.5">
-                  {categoryDetails.map(c => {
-                    const catTotal = c.params || 1;
-                    const catAssessed = c.assessed || 0;
-                    const catPct = Math.round(catAssessed / catTotal * 100);
+                <div className="px-5 py-4 space-y-3">
+                  {Object.entries(codeAnalysis.findings_by_pattern || {}).sort((a, b) => b[1] - a[1]).map(([pat, count]) => {
+                    const maxCount = Math.max(...Object.values(codeAnalysis!.findings_by_pattern || {}), 1);
+                    const pct = (count / maxCount) * 100;
                     return (
-                      <div key={c.key} className="flex items-center gap-2 text-[11px]">
-                        <span className="w-[180px] min-w-[120px] text-gray-400 truncate">{c.label}</span>
-                        <div className="flex-1 h-[6px] rounded-sm bg-white/[0.06] overflow-hidden">
-                          <div className="h-full rounded-sm bg-accent/60" style={{ width: `${catPct}%` }} />
+                      <div key={pat} className="flex items-center gap-3">
+                        <span className="w-[180px] min-w-[140px] text-[13px] truncate" style={{ color: C.gray30 }}>{CODE_PATTERN_LABELS[pat] || pat}</span>
+                        <div className="flex-1 h-1" style={{ background: C.gray80 }}>
+                          <div className="h-full" style={{ width: `${pct}%`, background: C.red40 }} />
                         </div>
-                        <span className="min-w-[60px] text-right text-gray-500 font-mono text-[10px]">{catAssessed}/{catTotal}</span>
+                        <span className="min-w-[28px] text-right text-[13px] font-semibold" style={{ color: C.gray10 }}>{count}</span>
                       </div>
                     );
                   })}
                 </div>
-              </GlassCard>
-            )}
+              </CarbonTile>
 
-            {/* Manual review params */}
-            {paramCoverage.not_assessable_params?.length > 0 && (
-              <GlassCard className="p-5">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Parameters Requiring Manual Review</h4>
-                <div className="space-y-1">
-                  {paramCoverage.not_assessable_params.map(p => (
-                    <div key={p.id} className="flex items-start gap-3 text-[11px] py-1 border-b border-white/[0.02]">
-                      <span className="text-gray-600 min-w-[36px] font-mono">{p.id}</span>
-                      <span className="text-gray-400 min-w-[200px]">{p.name}</span>
-                      <span className="text-gray-600 italic">{p.reason}</span>
-                    </div>
+              {/* Severity Breakdown */}
+              {Object.entries(codeAnalysis.severity_counts || {}).some(([, count]) => count > 0) && (
+                <CarbonTile className="p-5">
+                  <h4 className="text-[14px] font-semibold mb-3" style={{ color: C.gray10 }}>Severity Breakdown</h4>
+                  <div className="grid grid-cols-4 gap-0">
+                    {Object.entries(codeAnalysis.severity_counts || {}).map(([sev, count]) => {
+                      if (count === 0) return null;
+                      const sevColor = sev === 'Critical' ? C.red40 : sev === 'High' ? C.orange40 : sev === 'Medium' ? C.yellow30 : C.green40;
+                      return (
+                        <div key={sev} className="p-4" style={{ borderLeft: `3px solid ${sevColor}`, background: C.gray80 }}>
+                          <span className="text-[28px] font-light block" style={{ color: C.gray10 }}>{count}</span>
+                          <span className="text-[12px]" style={{ color: C.gray50 }}>{sev}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CarbonTile>
+              )}
+            </motion.div>
+          )}
+
+          {/* ===== COVERAGE TAB ===== */}
+          {activeTab === 'coverage' && paramCoverage && (
+            <motion.div
+              key="tab-coverage"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Coverage KPIs */}
+              <div className="grid grid-cols-6">
+                {[
+                  { label: 'Assessed', value: paramCoverage.assessed, color: C.supportSuccess },
+                  { label: 'Deterministic', value: paramCoverage.deterministic_count ?? '—', color: C.teal40 },
+                  { label: 'AI Inferred', value: paramCoverage.ai_inferred_count ?? '—', color: C.blue40 },
+                  { label: 'Pending', value: paramCoverage.pending ?? '—', color: C.supportWarning },
+                  { label: 'Manual Only', value: paramCoverage.not_assessable, color: C.gray50 },
+                  { label: 'Coverage', value: `${coveragePct}%`, color: C.blue40 },
+                ].map((kpi, i) => (
+                  <CarbonTile key={kpi.label} className="px-4 py-4 text-center" style={{ borderRight: i < 5 ? `1px solid ${C.gray80}` : undefined }}>
+                    <span className="text-[24px] font-light block" style={{ color: kpi.color }}>{kpi.value}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.gray50 }}>{kpi.label}</span>
+                  </CarbonTile>
+                ))}
+              </div>
+
+              {/* Assessment Breakdown Bar */}
+              <CarbonTile className="p-5">
+                <h4 className="text-[14px] font-semibold mb-3" style={{ color: C.gray10 }}>Assessment Breakdown</h4>
+                <div className="h-2 flex overflow-hidden" style={{ background: C.gray80 }}>
+                  {(paramCoverage.deterministic_count ?? 0) > 0 && (
+                    <div className="h-full" style={{ width: `${(paramCoverage.deterministic_count ?? 0) / paramCoverage.total * 100}%`, background: C.teal40 }} title={`Deterministic: ${paramCoverage.deterministic_count}`} />
+                  )}
+                  {(paramCoverage.ai_inferred_count ?? 0) > 0 && (
+                    <div className="h-full" style={{ width: `${(paramCoverage.ai_inferred_count ?? 0) / paramCoverage.total * 100}%`, background: C.blue40 }} title={`AI Inferred: ${paramCoverage.ai_inferred_count}`} />
+                  )}
+                  {(paramCoverage.pending ?? 0) > 0 && (
+                    <div className="h-full" style={{ width: `${(paramCoverage.pending ?? 0) / paramCoverage.total * 100}%`, background: `${C.supportWarning}60` }} title={`Pending: ${paramCoverage.pending}`} />
+                  )}
+                </div>
+                <div className="flex gap-5 mt-3">
+                  {[
+                    { label: 'Deterministic', color: C.teal40 },
+                    { label: 'AI Inferred', color: C.blue40 },
+                    { label: 'Pending', color: `${C.supportWarning}60` },
+                    { label: 'Skipped / Manual', color: C.gray60 },
+                  ].map(leg => (
+                    <span key={leg.label} className="flex items-center gap-1.5 text-[12px]" style={{ color: C.gray40 }}>
+                      <span className="w-3 h-1" style={{ background: leg.color }} />
+                      {leg.label}
+                    </span>
                   ))}
                 </div>
-              </GlassCard>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </CarbonTile>
 
-      {/* Footer */}
-      <div className="text-center mt-10 pt-6 border-t border-white/[0.06]">
-        <div className="flex items-center justify-center gap-2 mb-1.5">
-          <div className="w-4 h-4 rounded accent-gradient flex items-center justify-center">
-            <Activity className="w-2.5 h-2.5 text-white" />
+              {/* Per-category Coverage */}
+              {categoryDetails.length > 0 && (
+                <CarbonTile className="p-0">
+                  <div className="px-5 py-3" style={{ background: C.gray80 }}>
+                    <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Coverage by Category</span>
+                  </div>
+                  <div>
+                    {categoryDetails.map((c, i) => {
+                      const catTotal = c.params || 1;
+                      const catAssessed = c.assessed || 0;
+                      const catPct = Math.round(catAssessed / catTotal * 100);
+                      return (
+                        <div key={c.key} className="flex items-center gap-3 px-5 py-2.5" style={{ borderBottom: i < categoryDetails.length - 1 ? `1px solid ${C.gray80}` : undefined }}>
+                          <span className="w-[180px] min-w-[120px] text-[13px] truncate" style={{ color: C.gray30 }}>{c.label}</span>
+                          <div className="flex-1 h-1" style={{ background: C.gray80 }}>
+                            <div className="h-full transition-all" style={{ width: `${catPct}%`, background: C.blue40 }} />
+                          </div>
+                          <span className="min-w-[60px] text-right text-[12px] font-mono" style={{ color: C.gray50 }}>{catAssessed}/{catTotal}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CarbonTile>
+              )}
+
+              {/* Manual Review Parameters */}
+              {paramCoverage.not_assessable_params?.length > 0 && (
+                <CarbonTile className="p-0">
+                  <div className="px-5 py-3" style={{ background: C.gray80 }}>
+                    <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Parameters Requiring Manual Review</span>
+                  </div>
+                  <div>
+                    {paramCoverage.not_assessable_params.map((p, i) => (
+                      <div key={p.id} className="flex items-start gap-3 px-5 py-2.5" style={{ borderBottom: i < paramCoverage!.not_assessable_params.length - 1 ? `1px solid ${C.gray80}` : undefined }}>
+                        <span className="text-[12px] min-w-[40px] font-mono" style={{ color: C.gray60 }}>{p.id}</span>
+                        <span className="text-[13px] min-w-[200px]" style={{ color: C.gray20 }}>{p.name}</span>
+                        <span className="text-[12px]" style={{ color: C.gray50 }}>{p.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CarbonTile>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Footer */}
+        <div className="px-6 py-4 flex items-center justify-between" style={{ background: C.gray80, borderTop: `1px solid ${C.gray70}` }}>
+          <div className="flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5" style={{ color: C.blue40 }} />
+            <span className="text-[12px] font-normal" style={{ color: C.gray40 }}>PwC Org Health Analytics</span>
           </div>
-          <span className="font-bold text-[11px] text-gray-400 tracking-wide">PwC Org Health Analytics</span>
+          <span className="text-[11px]" style={{ color: C.gray50 }}>&copy; 2026 PwC. All rights reserved.</span>
         </div>
-        <p className="text-[9px] text-gray-600">&copy; 2026 PwC. All rights reserved.</p>
       </div>
     </PageTransition>
   );

@@ -1,7 +1,9 @@
 import { createContext, useContext, useReducer, useCallback, type ReactNode } from 'react';
 import type { Org, SettingsData } from '@/api/types';
+import type { AccentColor } from '@/utils/colors';
 
 const SELECTED_ORG_KEY = 'selectedOrgUsername';
+const ACCENT_KEY = 'accentColor';
 
 interface Toast {
   id: number;
@@ -15,6 +17,7 @@ interface AppState {
   selectedOrg: Org | null;
   toasts: Toast[];
   scanRunning: boolean;
+  accentColor: AccentColor;
 }
 
 type Action =
@@ -23,7 +26,8 @@ type Action =
   | { type: 'SET_SELECTED_ORG'; payload: Org | null }
   | { type: 'ADD_TOAST'; payload: Omit<Toast, 'id'> }
   | { type: 'REMOVE_TOAST'; payload: number }
-  | { type: 'SET_SCAN_RUNNING'; payload: boolean };
+  | { type: 'SET_SCAN_RUNNING'; payload: boolean }
+  | { type: 'SET_ACCENT_COLOR'; payload: AccentColor };
 
 let toastId = 0;
 
@@ -61,6 +65,9 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, toasts: state.toasts.filter(t => t.id !== action.payload) };
     case 'SET_SCAN_RUNNING':
       return { ...state, scanRunning: action.payload };
+    case 'SET_ACCENT_COLOR':
+      localStorage.setItem(ACCENT_KEY, action.payload);
+      return { ...state, accentColor: action.payload };
     default:
       return state;
   }
@@ -81,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     selectedOrg: null,
     toasts: [],
     scanRunning: false,
+    accentColor: (localStorage.getItem(ACCENT_KEY) as AccentColor) || 'blue',
   });
 
   const toast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {

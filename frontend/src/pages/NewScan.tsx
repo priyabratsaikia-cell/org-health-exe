@@ -10,6 +10,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/api/client';
+import { getColors } from '@/utils/colors';
 import { timeAgo } from '@/utils/formatters';
 import type { WsMessage, Scan } from '@/api/types';
 
@@ -18,38 +19,6 @@ interface LogEntry {
   text: string;
   level: 'info' | 'success' | 'error';
 }
-
-const C = {
-  gray100: '#161616',
-  gray90: '#262626',
-  gray80: '#393939',
-  gray70: '#525252',
-  gray60: '#6F6F6F',
-  gray50: '#8D8D8D',
-  gray40: '#A8A8A8',
-  gray30: '#C6C6C6',
-  gray20: '#E0E0E0',
-  gray10: '#F4F4F4',
-  blue80: '#002D9C',
-  blue60: '#0F62FE',
-  blue40: '#78A9FF',
-  blue20: '#D0E2FF',
-  teal60: '#009D9A',
-  teal40: '#08BDBA',
-  purple60: '#8A3FFC',
-  purple40: '#BE95FF',
-  red60: '#DA1E28',
-  red40: '#FF8389',
-  green60: '#198038',
-  green40: '#42BE65',
-  orange40: '#FF832B',
-  yellow30: '#F1C21B',
-  white: '#FFFFFF',
-  supportError: '#FA4D56',
-  supportWarning: '#F1C21B',
-  supportSuccess: '#42BE65',
-  supportInfo: '#4589FF',
-};
 
 const STEPS = [
   { icon: Database, label: 'Collect Metadata', desc: 'Gathering org configuration and component data' },
@@ -73,6 +42,8 @@ function CarbonTag({ text, color, type = 'default' }: { text: string; color: str
 }
 
 export default function NewScan() {
+  const { state, dispatch, toast } = useApp();
+  const C = getColors(state.accentColor);
   const [running, setRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [stepStatus, setStepStatus] = useState<('pending' | 'active' | 'done' | 'error')[]>(['pending', 'pending', 'pending', 'pending']);
@@ -88,7 +59,6 @@ export default function NewScan() {
   const logRef = useRef<HTMLDivElement>(null);
   const orgPickerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { state, toast } = useApp();
   const ws = useWebSocket();
 
   useEffect(() => {
@@ -216,25 +186,6 @@ export default function NewScan() {
   return (
     <PageTransition>
       <div>
-        {/* Page Header - IBM Breadcrumb Style */}
-        <div className="px-6 pt-5 pb-4" style={{ background: C.gray100 }}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[12px] font-normal" style={{ color: C.gray50 }}>Scans</span>
-            <span style={{ color: C.gray50 }}>/</span>
-            <span className="text-[12px] font-normal" style={{ color: C.gray10 }}>New Scan</span>
-          </div>
-          <div className="flex items-end justify-between">
-            <div>
-              <h1 className="text-[28px] font-light tracking-tight" style={{ color: C.white, fontFamily: '"IBM Plex Sans", sans-serif' }}>
-                Run Health Scan
-              </h1>
-              <p className="text-[14px] mt-1" style={{ color: C.gray50 }}>
-                Perform a comprehensive AI-powered health analysis of your Salesforce org
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Running Scans Banner */}
         <AnimatePresence>
           {runningScans.length > 0 && (
@@ -408,7 +359,7 @@ export default function NewScan() {
                   disabled={running || checkingPackage || !selectedAlias}
                   className="flex items-center gap-2 px-5 py-3 text-[14px] font-normal transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ background: running || checkingPackage ? C.gray70 : C.blue60, color: C.white }}
-                  onMouseEnter={e => { if (!running && !checkingPackage && selectedAlias) e.currentTarget.style.background = '#0353E9'; }}
+                  onMouseEnter={e => { if (!running && !checkingPackage && selectedAlias) e.currentTarget.style.background = C.blue60h; }}
                   onMouseLeave={e => { if (!running && !checkingPackage && selectedAlias) e.currentTarget.style.background = C.blue60; }}
                 >
                   {running || checkingPackage ? (
@@ -632,7 +583,7 @@ export default function NewScan() {
                   onClick={handleProceedWithoutPackage}
                   className="flex items-center gap-2 px-4 py-2 text-[14px] font-normal transition-colors"
                   style={{ background: C.blue60, color: C.white }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#0353E9')}
+                  onMouseEnter={e => (e.currentTarget.style.background = C.blue60h)}
                   onMouseLeave={e => (e.currentTarget.style.background = C.blue60)}
                 >
                   Proceed without package
