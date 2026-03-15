@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Org Health Monitor — PwC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <link rel="stylesheet" href="/static/styles.css?v=20260313" />
+</head>
+<body>
+<div id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="#D04A02"/>
+          <path d="M16 6l7 4v8l-7 4-7-4V10l7-4z" fill="#fff" opacity=".9"/>
+          <path d="M16 14v8" stroke="#D04A02" stroke-width="1.5" opacity=".7"/>
+          <circle cx="16" cy="12" r="1.5" fill="#D04A02" opacity=".7"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">Org Health Agent</span>
+        <span class="brand-org">PwC</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" data-page="scans">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Scans &amp; Reports</span>
+      </a>
+      <div class="nav-divider"></div>
+      <a class="nav-item" data-page="settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="conn-status" id="sidebar-status">
+        <span class="conn-dot disconnected"></span>
+        <span class="conn-label">No org connected</span>
+      </div>
+      <div class="sidebar-version">v1.0</div>
+    </div>
+  </aside>
+
+  <!-- Main wrapper -->
+  <div class="main-wrapper">
+
+    <header class="topbar">
+      <h2 class="topbar-title" id="page-title">Dashboard</h2>
+      <div class="topbar-badges">
+        <span class="tb-badge" id="tb-model">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v1h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2V6a4 4 0 014-4z"/></svg>
+          <span>No model</span>
+        </span>
+        <span class="tb-badge" id="tb-org">
+          <span class="conn-dot disconnected" style="width:7px;height:7px"></span>
+          <span>Not connected</span>
+        </span>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- DASHBOARD -->
+      <section class="page active" id="page-dashboard">
+
+        <!-- Row 1: Hero score cards -->
+        <div class="dash-hero-row">
+          <div class="dash-hero-card dash-hero-score">
+            <div class="hero-card-icon current-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="hero-card-body">
+              <span class="hero-card-label">Current Health Score</span>
+              <div class="hero-card-value" id="dash-current-score">--</div>
+              <span class="hero-card-sub" id="dash-current-grade">Run a scan to see your score</span>
+            </div>
+            <div class="hero-gauge-mini">
+              <canvas id="health-gauge-canvas" width="200" height="120"></canvas>
+              <div class="health-gauge-label" id="health-gauge-label">--</div>
+            </div>
+          </div>
+
+          <div class="dash-hero-card dash-hero-avg">
+            <div class="hero-card-icon avg-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            </div>
+            <div class="hero-card-body">
+              <span class="hero-card-label">Avg Score (Last 5 Scans)</span>
+              <div class="hero-card-value" id="dash-avg-score">--</div>
+              <span class="hero-card-sub" id="dash-avg-sub">No scan data yet</span>
+            </div>
+          </div>
+
+          <div class="dash-hero-card dash-hero-findings">
+            <div class="hero-card-icon findings-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="hero-card-body">
+              <span class="hero-card-label">Open Issues</span>
+              <div class="hero-card-value" id="dash-open-issues">0</div>
+              <span class="hero-card-sub" id="dash-critical-label">0 critical</span>
+            </div>
+          </div>
+
+          <div class="dash-hero-card dash-hero-critical">
+            <div class="hero-card-icon critical-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 001.636 2.871h16.214a1.914 1.914 0 001.636-2.87L13.637 3.59a1.914 1.914 0 00-3.274 0z"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>
+            </div>
+            <div class="hero-card-body">
+              <span class="hero-card-label">Critical Open Risks</span>
+              <div class="hero-card-value" id="dash-critical-open">0</div>
+              <span class="hero-card-sub" id="dash-critical-sub">No critical risks</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Charts grid (3 cols, 2 rows = 6 charts) -->
+        <div class="dash-charts-grid">
+
+          <div class="dash-chart-card">
+            <div class="dash-chart-header">
+              <div class="dash-chart-icon trend-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+              <h4>Health Score Trend</h4>
+            </div>
+            <div class="dash-chart-body"><canvas id="dash-chart-trend"></canvas></div>
+            <div class="dash-chart-summary" id="dash-summary-trend"></div>
+          </div>
+
+          <div class="dash-chart-card">
+            <div class="dash-chart-header">
+              <div class="dash-chart-icon severity-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <h4>Findings by Severity</h4>
+            </div>
+            <div class="dash-chart-body"><canvas id="dash-chart-severity"></canvas></div>
+            <div class="dash-chart-summary" id="dash-summary-severity"></div>
+          </div>
+
+          <div class="dash-chart-card">
+            <div class="dash-chart-header">
+              <div class="dash-chart-icon radar-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+              <h4>Category Health Radar</h4>
+            </div>
+            <div class="dash-chart-body dash-chart-body-tall"><canvas id="dash-chart-radar"></canvas></div>
+            <div class="dash-chart-summary" id="dash-summary-radar"></div>
+          </div>
+
+          <div class="dash-chart-card">
+            <div class="dash-chart-header">
+              <div class="dash-chart-icon risk-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></div>
+              <h4>Top Risk Categories</h4>
+            </div>
+            <div class="dash-chart-body"><canvas id="dash-chart-risk"></canvas></div>
+            <div class="dash-chart-summary" id="dash-summary-risk"></div>
+          </div>
+
+          <div class="dash-chart-card">
+            <div class="dash-chart-header">
+              <div class="dash-chart-icon effort-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+              <h4>Remediation Effort</h4>
+            </div>
+            <div class="dash-chart-body"><canvas id="dash-chart-effort"></canvas></div>
+            <div class="dash-chart-summary" id="dash-summary-effort"></div>
+          </div>
+
+          <div class="dash-chart-card">
+            <div class="dash-chart-header">
+              <div class="dash-chart-icon resolution-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+              <h4>Scan Activity &amp; Scores</h4>
+            </div>
+            <div class="dash-chart-body"><canvas id="dash-chart-activity"></canvas></div>
+            <div class="dash-chart-summary" id="dash-summary-activity"></div>
+          </div>
+        </div>
+
+        <!-- Row 4: Recent scans + Quick actions -->
+        <div class="dash-grid">
+          <div class="dash-card dash-card-wide">
+            <div class="dash-card-header">
+              <h3>Recent Scans</h3>
+              <button class="btn btn-accent btn-sm" id="dash-new-scan-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Scan
+              </button>
+            </div>
+            <div id="dash-recent-scans" class="dash-table-wrap"></div>
+          </div>
+          <div class="dash-card">
+            <h3>Quick Actions</h3>
+            <div class="quick-actions">
+              <button class="qa-btn" id="qa-new-scan">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Run Health Scan
+              </button>
+              <button class="qa-btn" id="qa-connect-org">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                Connect Org
+              </button>
+              <button class="qa-btn" id="qa-settings">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCANS LIST -->
+      <section class="page" id="page-scans">
+        <div class="page-toolbar">
+          <h3>All Scans</h3>
+          <button class="btn btn-accent btn-sm" id="scans-new-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Scan
+          </button>
+        </div>
+        <div id="scans-list" class="scans-list"></div>
+      </section>
+
+      <!-- NEW SCAN -->
+      <section class="page" id="page-new-scan">
+        <div class="scan-launch-card">
+          <h3>Run Org Health Scan</h3>
+          <p class="text-muted">Perform a comprehensive health analysis of your connected Salesforce org. The agent will collect metadata and runtime data, then use AI to identify issues and recommendations.</p>
+          <button class="btn btn-accent btn-lg" id="start-scan-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Start Health Scan
+          </button>
+        </div>
+
+        <div id="scan-progress" class="hidden">
+          <div class="pipeline" id="pipeline">
+            <div class="pipeline-step" data-step="1">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              </div></div>
+              <div class="step-label">Collect Metadata</div>
+              <div class="step-sub"></div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="2">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </div></div>
+              <div class="step-label">Runtime Data</div>
+              <div class="step-sub"></div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="3">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a4 4 0 014 4v1h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2V6a4 4 0 014-4z"/><circle cx="12" cy="14" r="2"/></svg>
+              </div></div>
+              <div class="step-label">AI Analysis</div>
+              <div class="step-sub"></div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="4">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div></div>
+              <div class="step-label">Generate Report</div>
+              <div class="step-sub"></div>
+            </div>
+          </div>
+
+          <div class="scan-progress-bar-wrap">
+            <div class="scan-progress-bar"><div class="scan-progress-fill" id="scan-progress-fill"></div></div>
+            <span class="scan-progress-pct" id="scan-progress-pct">0%</span>
+          </div>
+          <div class="scan-log" id="scan-log"></div>
+        </div>
+      </section>
+
+      <!-- SCAN DETAIL -->
+      <section class="page" id="page-scan-detail">
+        <button class="btn-back" id="detail-back-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Scans
+        </button>
+
+        <div id="detail-progress-wrap" class="hidden">
+          <div class="scan-launch-card" style="margin-bottom:0">
+            <h3 id="detail-progress-title">Health Scan In Progress</h3>
+            <p class="text-muted" id="detail-progress-sub">Live updates will appear below.</p>
+          </div>
+          <div class="pipeline" id="detail-pipeline">
+            <div class="pipeline-step" data-step="1">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              </div></div>
+              <div class="step-label">Collect Metadata</div>
+              <div class="step-sub"></div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="2">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </div></div>
+              <div class="step-label">Runtime Data</div>
+              <div class="step-sub"></div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="3">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a4 4 0 014 4v1h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2V6a4 4 0 014-4z"/><circle cx="12" cy="14" r="2"/></svg>
+              </div></div>
+              <div class="step-label">AI Analysis</div>
+              <div class="step-sub"></div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="4">
+              <div class="step-icon-wrap"><div class="step-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div></div>
+              <div class="step-label">Generate Report</div>
+              <div class="step-sub"></div>
+            </div>
+          </div>
+          <div class="scan-progress-bar-wrap">
+            <div class="scan-progress-bar"><div class="scan-progress-fill" id="detail-progress-fill"></div></div>
+            <span class="scan-progress-pct" id="detail-progress-pct">0%</span>
+          </div>
+          <div class="scan-log" id="detail-scan-log"></div>
+        </div>
+
+        <div id="detail-report-wrap">
+          <div class="report-hero">
+            <div class="report-hero-left">
+              <h2 class="report-hero-title">Org Health Report</h2>
+              <p class="report-hero-sub" id="detail-subtitle"></p>
+            </div>
+            <button class="btn btn-accent btn-lg" id="export-report-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download Report
+            </button>
+          </div>
+
+          <div class="report-stats" id="detail-stats"></div>
+
+          <div class="report-charts">
+            <div class="report-chart-card">
+              <div class="report-chart-head"><h4>Findings by Severity</h4></div>
+              <div class="report-chart-body"><canvas id="chart-severity"></canvas></div>
+            </div>
+            <div class="report-chart-card">
+              <div class="report-chart-head"><h4>Category Health Scores</h4></div>
+              <div class="report-chart-body report-chart-body-radar"><canvas id="chart-category"></canvas></div>
+            </div>
+          </div>
+
+          <div class="report-summary-card" id="detail-summary"></div>
+
+          <div class="inventory-section">
+            <div class="inventory-toolbar">
+              <h3>Detailed Findings</h3>
+              <div class="inventory-controls">
+                <div class="inv-search-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="inv-search" placeholder="Search findings…" />
+                </div>
+                <select id="filter-severity"><option value="">All Severities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>Info</option></select>
+                <select id="filter-category"><option value="">All Categories</option></select>
+                <label class="toggle-label" style="margin:0"><input type="checkbox" id="filter-unresolved" /><span>Unresolved only</span></label>
+              </div>
+            </div>
+            <div class="inv-table-wrap">
+              <table class="inv-table" id="inv-table">
+                <thead>
+                  <tr>
+                    <th style="width:60px">#</th>
+                    <th>Finding</th>
+                    <th style="width:100px">Severity</th>
+                    <th style="width:140px">Category</th>
+                    <th style="width:100px">Effort</th>
+                    <th style="width:100px">Status</th>
+                    <th style="width:70px">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-tbody"></tbody>
+              </table>
+            </div>
+            <div class="inv-footer" id="inv-footer"></div>
+          </div>
+
+          <div class="report-footer">
+            <div class="report-footer-brand">
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#D04A02"/><path d="M16 6l7 4v8l-7 4-7-4V10l7-4z" fill="#fff" opacity=".9"/></svg>
+              <span>PwC Org Health Analytics</span>
+            </div>
+            <p>&copy; 2026 PwC. All rights reserved.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="page" id="page-settings">
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              Gemini API Key
+            </h3>
+            <div class="form-group">
+              <label for="s-api-key">API Key</label>
+              <input type="password" id="s-api-key" placeholder="Enter your Gemini API key" autocomplete="off" />
+              <div class="input-hint" id="s-api-hint"></div>
+            </div>
+            <div class="form-group">
+              <label for="s-model">Model</label>
+              <select id="s-model">
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                <option value="gemini-3-pro-preview">Gemini 3 Pro Preview</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-accent" id="s-save-key-btn">Save Key</button>
+              <button class="btn btn-ghost btn-danger-text" id="s-remove-key-btn">Remove Key</button>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V8.2c0-1.12 0-1.68.218-2.108a2 2 0 01.874-.874C6.52 5 7.08 5 8.2 5h7.6c1.12 0 1.68 0 2.108.218a2 2 0 01.874.874C19 6.52 19 7.08 19 8.2V20"/></svg>
+              Connected Orgs
+            </h3>
+            <div id="s-org-list" class="org-list"></div>
+            <div class="connect-form">
+              <div class="form-group">
+                <label for="s-org-alias">Org Alias</label>
+                <input type="text" id="s-org-alias" value="org-health-agent-org" />
+              </div>
+              <label class="toggle-label"><input type="checkbox" id="s-sandbox" /><span>Sandbox</span></label>
+              <button class="btn btn-accent" id="s-connect-btn">Connect New Org</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/app.js?v=20260313"></script>
+</body>
+</html>

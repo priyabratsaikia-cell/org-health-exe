@@ -1,0 +1,19 @@
+﻿sf :  ┬╗   Warning: @salesforce/cli update available from 2.78.3 to 2.125.2.
+At C:\Users\psaikia004\AppData\Local\Temp\ps-script-ee075526-c3a7-4e9f-89ae-1048152d7a34.ps1:85 char:1
++ sf sobject list --sobject-type custom --target-org agentforceOrg --js ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ┬╗   Warning: ...8.3 to 2.125.2.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{
+  "name": "Error",
+  "message": "Nonexistent flag: --sobject-type\nSee more help with --help",
+  "exitCode": 2,
+  "context": "SObjectList",
+  "stack": "Error: Nonexistent flag: --sobject-type\nSee more help with --help\n    at SfCommandError.from (file:///C:/Program%20Files%20(x86)/sf/client/node_modules/@salesforce/plugin-schema/node_modules/@salesforce/sf-plugins-core/lib/SfCommandError.js:39:16)\n    at SObjectList.catch (file:///C:/Program%20Files%20(x86)/sf/client/node_modules/@salesforce/plugin-schema/node_modules/@salesforce/sf-plugins-core/lib/sfCommand.js:316:47)\n    at SObjectList._run (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\command.js:185:29)\n    at async Config.runCommand (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\config\\config.js:456:25)\n    at async run (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\main.js:96:16)\n    at async file:///C:/Program%20Files%20(x86)/sf/client/bin/run.js:15:1",
+  "cause": "NonExistentFlagsError: Nonexistent flag: --sobject-type\nSee more help with --help\n    at validateArgs (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\parser\\validate.js:10:19)\n    at validate (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\parser\\validate.js:207:5)\n    at Object.parse (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\parser\\index.js:20:35)\n    at async SObjectList.parse (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\command.js:274:25)\n    at async SObjectList.run (file:///C:/Program%20Files%20(x86)/sf/client/node_modules/@salesforce/plugin-schema/lib/commands/sobject/list.js:43:27)\n    at async SObjectList._run (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\command.js:181:22)\n    at async Config.runCommand (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\config\\config.js:456:25)\n    at async run (C:\\Program Files (x86)\\sf\\client\\node_modules\\@oclif\\core\\lib\\main.js:96:16)\n    at async file:///C:/Program%20Files%20(x86)/sf/client/bin/run.js:15:1 {\n  code: undefined,\n  oclif: { exit: 2 },\n  skipOclifErrorHandling: undefined,\n  suggestions: undefined,\n  parse: {\n    input: {\n      '--': undefined,\n      args: {},\n      argv: [Array],\n      context: [SObjectList],\n      flags: [Object],\n      strict: true\n    },\n    output: {\n      args: {},\n      argv: [Array],\n      flags: [Object],\n      metadata: [Object],\n      nonExistentFlags: [Array],\n      raw: [Array]\n    }\n  },\n  showHelp: true,\n  flags: [ '--sobject-type' ]\n}",
+  "warnings": [],
+  "code": "2",
+  "status": 2,
+  "commandName": "SObjectList"
+}

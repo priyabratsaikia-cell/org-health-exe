@@ -12,12 +12,13 @@
     "dev:clean": "electron . --clear-cache",
     "build:frontend": "cd frontend && npm install && npm run build",
     "build:python": "node scripts/build-python.js",
+    "predist": "node scripts/patch-7za.js",
     "dist": "electron-builder --win",
     "build:all": "npm run build:frontend && npm run build:python && npm run dist"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.1.0"
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
   },
   "build": {
     "appId": "com.orghealth.agent",
@@ -46,7 +47,9 @@
       {
         "from": "python-dist/",
         "to": "python-backend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "files": [

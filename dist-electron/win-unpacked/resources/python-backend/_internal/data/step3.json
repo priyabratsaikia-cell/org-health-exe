@@ -1,0 +1,122 @@
+﻿{
+  "status": 0,
+  "result": {
+    "records": [
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCWN6AAP"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAER6AAP"
+          },
+          "Name": "Limits Monitor 1"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCWN7AAP"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAER7AAP"
+          },
+          "Name": "Limits Monitor 2"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCWN8AAP"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAER8AAP"
+          },
+          "Name": "Limits Monitor 3"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCWN9AAP"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAER9AAP"
+          },
+          "Name": "Limits Monitor 4"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCtmZAAT"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAbqZAAT"
+          },
+          "Name": "Limits Monitor 5"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCtmaAAD"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAbqaAAD"
+          },
+          "Name": "Limits Monitor 6"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCtmbAAD"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAbqbAAD"
+          },
+          "Name": "Limits Monitor 7"
+        },
+        "State": "WAITING"
+      },
+      {
+        "attributes": {
+          "type": "CronTrigger",
+          "url": "/services/data/v66.0/sobjects/CronTrigger/08efj00000FCtmcAAD"
+        },
+        "CronJobDetail": {
+          "attributes": {
+            "type": "CronJobDetail",
+            "url": "/services/data/v66.0/sobjects/CronJobDetail/08afj00000FAbqcAAD"
+          },
+          "Name": "Limits Monitor 8"
+        },
+        "State": "WAITING"
+      }
+    ],
+    "totalSize": 8,
+    "done": true
+  },
+  "warnings": []
+}

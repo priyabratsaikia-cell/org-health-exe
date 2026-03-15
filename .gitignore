@@ -13,9 +13,11 @@ build/
 
 # Electron
 node_modules/
-dist-electron/
 python-dist/
-*.exe
 !build/icon.ico
 !build/license.txt
 !build/installer.nsh
+
+# Large exe files (>100MB) - uploaded via GitHub Releases instead
+dist-electron/Org Health Agent Setup 1.0.0.exe
+dist-electron/win-unpacked/Org Health Agent.exe

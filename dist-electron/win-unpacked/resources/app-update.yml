@@ -1,0 +1,4 @@
+owner: priyabratsaikia-cell
+repo: org-health-exe
+provider: github
+updaterCacheDirName: org-health-agent-updater

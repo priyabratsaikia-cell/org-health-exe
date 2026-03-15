@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SIZE = 64;
+const SIZE = 256;
 const OUTPUT = path.join(__dirname, '..', 'build', 'icon.ico');
 
 function createBMPData(size) {

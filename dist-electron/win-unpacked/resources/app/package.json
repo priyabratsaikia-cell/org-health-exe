@@ -1,0 +1,9 @@
+{
+  "name": "org-health-agent",
+  "version": "1.0.0",
+  "description": "Salesforce Org Health Monitoring Agent - Desktop Application",
+  "main": "electron/main.js",
+  "author": "Priyabrat Saikia",
+  "license": "UNLICENSED",
+  "private": true
+}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading...</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #161616;
+    color: #F4F4F4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+
+  .logo-container {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 28px;
+  }
+
+  .logo-ring {
+    position: absolute;
+    inset: 0;
+    border: 2px solid transparent;
+    border-top-color: #0F62FE;
+    border-right-color: #0F62FE;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .logo-ring-inner {
+    position: absolute;
+    inset: 10px;
+    border: 2px solid transparent;
+    border-bottom-color: #78A9FF;
+    border-left-color: #78A9FF;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite reverse;
+  }
+
+  .logo-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-icon svg {
+    width: 32px;
+    height: 32px;
+    fill: none;
+    stroke: #0F62FE;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #F4F4F4;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: #8D8D8D;
+    margin-bottom: 28px;
+  }
+
+  .progress-track {
+    width: 180px;
+    height: 2px;
+    background: #393939;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 40%;
+    background: #0F62FE;
+    animation: slide 1.4s ease-in-out infinite;
+  }
+
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(450%); }
+  }
+
+  .version {
+    position: absolute;
+    bottom: 14px;
+    font-size: 11px;
+    color: #525252;
+  }
+</style>
+</head>
+<body>
+  <div class="logo-container">
+    <div class="logo-ring"></div>
+    <div class="logo-ring-inner"></div>
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+  </div>
+
+  <h1>Org Health Agent</h1>
+  <p class="subtitle">Starting backend services...</p>
+  <div class="progress-track">
+    <div class="progress-fill"></div>
+  </div>
+  <p class="version">v1.0.0</p>
+</body>
+</html>
