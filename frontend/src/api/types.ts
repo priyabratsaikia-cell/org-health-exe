@@ -190,6 +190,15 @@ export type WsMessage =
   | { type: 'error'; message: string }
   | { type: 'pong' };
 
+export interface VerificationResult {
+  verified: boolean;
+  confidence: 'high' | 'medium' | 'low';
+  summary: string;
+  details: string[];
+  components_checked: number;
+  resolved: boolean;
+}
+
 export type SeverityLevel = 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
 
 export interface DrillFilter {

@@ -1,4 +1,4 @@
-import type { DashboardData, Finding, Org, Scan, SettingsData, Category, LimitsPackageStatus, ParameterChecklist } from './types';
+import type { DashboardData, Finding, Org, Scan, SettingsData, Category, LimitsPackageStatus, ParameterChecklist, VerificationResult } from './types';
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -54,4 +54,5 @@ export const api = {
     request<{ analysis: string }>('POST', '/api/scans/compare-analysis', { scan_id: scanId, prev_scan_id: prevScanId }),
   resolveFinding: (id: number) => request<{ ok: boolean }>('POST', `/api/findings/${id}/resolve`),
   unresolveFinding: (id: number) => request<{ ok: boolean }>('POST', `/api/findings/${id}/unresolve`),
+  verifyResolution: (id: number) => request<VerificationResult>('POST', `/api/findings/${id}/verify-resolution`),
 };

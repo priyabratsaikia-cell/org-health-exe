@@ -288,6 +288,210 @@ async def unresolve_finding(finding_id: int):
     return {"ok": True}
 
 
+@app.post("/api/findings/{finding_id}/verify-resolution")
+async def verify_finding_resolution(finding_id: int):
+    """Re-scan affected components via SF CLI, then ask Gemini whether the fix is truly applied."""
+    from app.services.llm import invoke_llm
+
+    if not app_state.gemini_api_key:
+        raise HTTPException(status_code=400, detail="Gemini API key not configured. Go to Settings.")
+
+    finding = await db.get_finding_by_id(finding_id)
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    scan = await db.get_scan(finding["scan_id"])
+    if not scan:
+        raise HTTPException(status_code=404, detail="Associated scan not found")
+
+    org_alias = scan["org_alias"]
+    affected = finding.get("affected_components", [])
+
+    component_states: list[dict] = []
+    for comp_name in affected:
+        state = await _retrieve_component_state(org_alias, comp_name)
+        component_states.append({"name": comp_name, **state})
+
+    system_prompt = (
+        "You are a Salesforce org health verification expert. You must determine whether "
+        "a reported finding has actually been resolved in the org by examining the current "
+        "state of the affected components.\n\n"
+        "You will be given:\n"
+        "1. The original finding (title, severity, description, recommendation)\n"
+        "2. The current state of affected components retrieved from the live Salesforce org\n\n"
+        "Respond with ONLY valid JSON in this exact format:\n"
+        '{"verified": true/false, "confidence": "high"/"medium"/"low", '
+        '"summary": "2-3 sentence explanation of your verification result", '
+        '"details": ["bullet point 1", "bullet point 2", ...]}\n\n'
+        "RULES:\n"
+        "- Set verified=true ONLY if the evidence strongly suggests the fix was applied\n"
+        "- If components could not be retrieved, lean toward verified=false with low confidence\n"
+        "- Be specific about what you checked and what the evidence shows\n"
+        "- Keep the summary concise but informative"
+    )
+
+    user_prompt = (
+        f"## Original Finding\n"
+        f"**Title:** {finding['title']}\n"
+        f"**Severity:** {finding['severity']}\n"
+        f"**Category:** {finding.get('category', 'N/A')}\n"
+        f"**Description:** {finding.get('description', 'N/A')}\n"
+        f"**Recommendation:** {finding.get('recommendation', 'N/A')}\n\n"
+        f"## Current Component States (Live from Org: {org_alias})\n"
+    )
+    for cs in component_states:
+        user_prompt += f"\n### {cs['name']}\n"
+        user_prompt += f"- Type: {cs.get('type', 'Unknown')}\n"
+        user_prompt += f"- Found: {cs.get('found', False)}\n"
+        if cs.get("metadata"):
+            for k, v in cs["metadata"].items():
+                user_prompt += f"- {k}: {v}\n"
+        if cs.get("error"):
+            user_prompt += f"- Error: {cs['error']}\n"
+
+    try:
+        raw = await invoke_llm(
+            api_key=app_state.gemini_api_key,
+            model=app_state.gemini_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.1,
+        )
+
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3].strip()
+
+        result = json.loads(cleaned)
+        verified = result.get("verified", False)
+
+        if verified:
+            await db.resolve_finding(finding_id)
+
+        return {
+            "verified": verified,
+            "confidence": result.get("confidence", "medium"),
+            "summary": result.get("summary", ""),
+            "details": result.get("details", []),
+            "components_checked": len(component_states),
+            "resolved": verified,
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse verification LLM response: %s", raw[:500])
+        return {
+            "verified": False,
+            "confidence": "low",
+            "summary": "AI verification completed but produced an unparseable response. Manual review recommended.",
+            "details": [raw[:500] if raw else "No response from AI"],
+            "components_checked": len(component_states),
+            "resolved": False,
+        }
+    except Exception as exc:
+        logger.exception("Verification LLM call failed")
+        raise HTTPException(status_code=500, detail=f"Verification failed: {exc}")
+
+
+async def _retrieve_component_state(org_alias: str, component_name: str) -> dict:
+    """Query the live Salesforce org for the current state of a single component."""
+    lower = component_name.lower()
+    try:
+        if lower.endswith(".cls") or "class" in lower or "controller" in lower or "handler" in lower or "service" in lower or "helper" in lower:
+            name = component_name.replace(".cls", "")
+            records = await salesforce.run_tooling_soql(
+                org_alias,
+                f"SELECT Name, Status, LengthWithoutComments, ApiVersion, LastModifiedDate "
+                f"FROM ApexClass WHERE Name = '{name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "ApexClass", "found": True, "metadata": records[0]}
+            return {"type": "ApexClass", "found": False}
+
+        if lower.endswith(".trigger") or "trigger" in lower:
+            name = component_name.replace(".trigger", "")
+            records = await salesforce.run_tooling_soql(
+                org_alias,
+                f"SELECT Name, Status, LengthWithoutComments, ApiVersion, LastModifiedDate "
+                f"FROM ApexTrigger WHERE Name = '{name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "ApexTrigger", "found": True, "metadata": records[0]}
+            return {"type": "ApexTrigger", "found": False}
+
+        if "flow" in lower:
+            name = component_name.split(".")[0] if "." in component_name else component_name
+            records = await salesforce.run_tooling_soql(
+                org_alias,
+                f"SELECT DeveloperName, ActiveVersionId, LatestVersionId, LastModifiedDate "
+                f"FROM FlowDefinition WHERE DeveloperName = '{name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "Flow", "found": True, "metadata": records[0]}
+            return {"type": "Flow", "found": False}
+
+        if lower.endswith("__c"):
+            records = await salesforce.run_tooling_soql(
+                org_alias,
+                f"SELECT DeveloperName, Description, LastModifiedDate "
+                f"FROM CustomObject WHERE DeveloperName = '{component_name.replace('__c', '')}' LIMIT 1",
+            )
+            if records:
+                return {"type": "CustomObject", "found": True, "metadata": records[0]}
+            return {"type": "CustomObject", "found": False}
+
+        if "profile" in lower:
+            records = await salesforce.run_soql(
+                org_alias,
+                f"SELECT Name, UserType, LastModifiedDate FROM Profile WHERE Name = '{component_name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "Profile", "found": True, "metadata": records[0]}
+            return {"type": "Profile", "found": False}
+
+        if "permission" in lower:
+            records = await salesforce.run_soql(
+                org_alias,
+                f"SELECT Name, Label, IsCustom, LastModifiedDate FROM PermissionSet WHERE Name = '{component_name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "PermissionSet", "found": True, "metadata": records[0]}
+            return {"type": "PermissionSet", "found": False}
+
+        if lower.endswith(".page") or "visualforce" in lower:
+            name = component_name.replace(".page", "")
+            records = await salesforce.run_tooling_soql(
+                org_alias,
+                f"SELECT Name, ApiVersion, LastModifiedDate FROM ApexPage WHERE Name = '{name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "ApexPage", "found": True, "metadata": records[0]}
+            return {"type": "ApexPage", "found": False}
+
+        if "validation" in lower:
+            records = await salesforce.run_tooling_soql(
+                org_alias,
+                f"SELECT ValidationName, Active, LastModifiedDate FROM ValidationRule WHERE ValidationName = '{component_name}' LIMIT 1",
+            )
+            if records:
+                return {"type": "ValidationRule", "found": True, "metadata": records[0]}
+            return {"type": "ValidationRule", "found": False}
+
+        records = await salesforce.run_tooling_soql(
+            org_alias,
+            f"SELECT Name, Status, LengthWithoutComments, ApiVersion, LastModifiedDate "
+            f"FROM ApexClass WHERE Name = '{component_name}' LIMIT 1",
+        )
+        if records:
+            return {"type": "ApexClass", "found": True, "metadata": records[0]}
+
+        return {"type": "Unknown", "found": False, "metadata": {"note": "Component type could not be determined"}}
+
+    except Exception as exc:
+        logger.warning("Failed to retrieve component state for %s: %s", component_name, exc)
+        return {"type": "Unknown", "found": False, "error": str(exc)}
+
+
 # ── Scan Comparison ───────────────────────────────────────────────────
 
 @app.post("/api/scans/compare-analysis")

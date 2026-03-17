@@ -51,6 +51,17 @@
   ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 }
 
+/* Fade Electron window controls behind modal backdrop (un-layered for specificity) */
+body[data-modal-open] .electron-window-controls {
+  opacity: 0.15 !important;
+  pointer-events: none !important;
+  filter: blur(1px) !important;
+  transition: opacity 0.25s ease, filter 0.25s ease !important;
+}
+.electron-window-controls {
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
 @layer components {
   .glass-card {
     background: var(--bg-surface);

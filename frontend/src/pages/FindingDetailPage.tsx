@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Shield, AlertTriangle, Clock, CheckCircle2,
   ChevronRight, Tag, Layers, Wrench, Activity, CircleDot,
@@ -8,6 +8,7 @@ import {
   Database, Zap, Settings, Globe, Lock, Code2,
 } from 'lucide-react';
 import PageTransition from '@/components/layout/PageTransition';
+import ResolutionVerificationModal from '@/components/findings/ResolutionVerificationModal';
 import { api } from '@/api/client';
 import { useApp } from '@/context/AppContext';
 import { getColors } from '@/utils/colors';
@@ -73,6 +74,7 @@ export default function FindingDetailPage() {
   const [finding, setFinding] = useState<Finding | null>(null);
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState(false);
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!scanId) return;
@@ -90,22 +92,28 @@ export default function FindingDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (verifyModalOpen) {
+      document.body.dataset.modalOpen = 'true';
+      return () => { delete document.body.dataset.modalOpen; };
+    }
+  }, [verifyModalOpen]);
+
   const handleResolve = async () => {
     if (!finding) return;
-    setResolving(true);
-    try {
-      if (finding.is_resolved) {
+    if (finding.is_resolved) {
+      setResolving(true);
+      try {
         await api.unresolveFinding(finding.id);
         toast('Marked as unresolved', 'success');
-      } else {
-        await api.resolveFinding(finding.id);
-        toast('Marked as resolved', 'success');
+        await load();
+      } catch (e: any) {
+        toast(e.message, 'error');
+      } finally {
+        setResolving(false);
       }
-      await load();
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setResolving(false);
+    } else {
+      setVerifyModalOpen(true);
     }
   };
 
@@ -519,6 +527,18 @@ export default function FindingDetailPage() {
           <span className="text-[11px]" style={{ color: C.gray50 }}>&copy; 2026 PwC. All rights reserved.</span>
         </div>
       </div>
+
+      <AnimatePresence>
+        {verifyModalOpen && finding && (
+          <ResolutionVerificationModal
+            open={verifyModalOpen}
+            onClose={() => { setVerifyModalOpen(false); }}
+            finding={finding}
+            C={C}
+            onResolved={() => { load(); }}
+          />
+        )}
+      </AnimatePresence>
     </PageTransition>
   );
 }

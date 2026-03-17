@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,12 @@ interface Props {
 }
 
 export default function ChartDrillModal({ filter, findings, onClose }: Props) {
+  useEffect(() => {
+    if (filter) {
+      document.body.dataset.modalOpen = 'true';
+      return () => { delete document.body.dataset.modalOpen; };
+    }
+  }, [filter]);
   const navigate = useNavigate();
   const C = useColors();
 

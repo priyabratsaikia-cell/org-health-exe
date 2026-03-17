@@ -9,6 +9,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import PageTransition from '@/components/layout/PageTransition';
 import FindingsTable from '@/components/findings/FindingsTable';
+import ResolutionVerificationModal from '@/components/findings/ResolutionVerificationModal';
 import { api } from '@/api/client';
 import { useApp } from '@/context/AppContext';
 import { getColors } from '@/utils/colors';
@@ -204,6 +205,8 @@ export default function ScanDetail() {
   const [methodologyOpen, setMethodologyOpen] = useState(false);
   const [coverageDrillType, setCoverageDrillType] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>(qTab || 'findings');
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [verifyFinding, setVerifyFinding] = useState<Finding | null>(null);
   const navigate = useNavigate();
   const { state, toast } = useApp();
   const C = getColors(state.accentColor, state.resolvedTheme);
@@ -223,18 +226,25 @@ export default function ScanDetail() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (methodologyOpen || coverageDrillType || verifyModalOpen) {
+      document.body.dataset.modalOpen = 'true';
+      return () => { delete document.body.dataset.modalOpen; };
+    }
+  }, [methodologyOpen, coverageDrillType, verifyModalOpen]);
+
   const handleResolve = async (f: Finding) => {
-    try {
-      if (f.is_resolved) {
+    if (f.is_resolved) {
+      try {
         await api.unresolveFinding(f.id);
         toast('Marked as unresolved', 'success');
-      } else {
-        await api.resolveFinding(f.id);
-        toast('Marked as resolved', 'success');
+        load();
+      } catch (e: any) {
+        toast(e.message, 'error');
       }
-      load();
-    } catch (e: any) {
-      toast(e.message, 'error');
+    } else {
+      setVerifyFinding(f);
+      setVerifyModalOpen(true);
     }
   };
 
@@ -1068,6 +1078,18 @@ export default function ScanDetail() {
           <span className="text-[11px]" style={{ color: C.gray50 }}>&copy; 2026 PwC. All rights reserved.</span>
         </div>
       </div>
+
+      <AnimatePresence>
+        {verifyModalOpen && verifyFinding && (
+          <ResolutionVerificationModal
+            open={verifyModalOpen}
+            onClose={() => { setVerifyModalOpen(false); setVerifyFinding(null); }}
+            finding={verifyFinding}
+            C={C}
+            onResolved={() => { load(); }}
+          />
+        )}
+      </AnimatePresence>
     </PageTransition>
   );
 }

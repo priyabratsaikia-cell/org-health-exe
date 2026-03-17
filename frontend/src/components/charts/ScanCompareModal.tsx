@@ -29,6 +29,13 @@ export default function ScanCompareModal({ scan, prevScan, onClose }: Props) {
 
   const open = !!(scan && prevScan);
 
+  useEffect(() => {
+    if (open) {
+      document.body.dataset.modalOpen = 'true';
+      return () => { delete document.body.dataset.modalOpen; };
+    }
+  }, [open]);
+
   const diffs: CategoryDiff[] = [];
   let scoreDelta = 0;
   if (scan && prevScan) {

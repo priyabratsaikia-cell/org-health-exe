@@ -374,6 +374,21 @@ async def get_all_findings(org_alias: str | None = None) -> list[dict]:
         return rows
 
 
+async def get_finding_by_id(finding_id: int) -> dict | None:
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT * FROM findings WHERE id = ?", (finding_id,))
+        row = await cur.fetchone()
+        if not row:
+            return None
+        r = dict(row)
+        try:
+            r["affected_components"] = json.loads(r["affected_components"] or "[]")
+        except (json.JSONDecodeError, TypeError):
+            r["affected_components"] = []
+        return r
+
+
 async def resolve_finding(finding_id: int):
     async with _connect() as db:
         await db.execute(
