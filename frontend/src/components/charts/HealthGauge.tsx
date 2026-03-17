@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { scoreColor, scoreGrade } from '@/utils/scoreHelpers';
+import { useApp } from '@/context/AppContext';
 
 interface Props {
   score: number | null;
@@ -9,6 +10,8 @@ interface Props {
 export default function HealthGauge({ score, size = 'lg' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [animatedScore, setAnimatedScore] = useState(0);
+  const { state } = useApp();
+  const isLight = state.resolvedTheme === 'light';
 
   useEffect(() => {
     if (score === null || score === undefined) return;
@@ -45,7 +48,7 @@ export default function HealthGauge({ score, size = 'lg' }: Props) {
     ctx.beginPath();
     ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
     ctx.lineWidth = lineWidth;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.06)';
     ctx.lineCap = 'round';
     ctx.stroke();
 
@@ -66,7 +69,7 @@ export default function HealthGauge({ score, size = 'lg' }: Props) {
       ctx.stroke();
 
       ctx.shadowColor = color;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = isLight ? 8 : 15;
       ctx.beginPath();
       ctx.arc(cx, cy, radius, Math.PI, angle);
       ctx.lineWidth = lineWidth / 3;
@@ -74,11 +77,12 @@ export default function HealthGauge({ score, size = 'lg' }: Props) {
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
-  }, [animatedScore, size]);
+  }, [animatedScore, size, isLight]);
 
   const color = score !== null ? scoreColor(score) : '#6B7280';
   const grade = score !== null ? scoreGrade(score) : '--';
   const isLg = size === 'lg';
+  const subColor = isLight ? '#6F6F6F' : '#8D8D8D';
 
   return (
     <div className="relative flex flex-col items-center">
@@ -90,7 +94,7 @@ export default function HealthGauge({ score, size = 'lg' }: Props) {
         <span className={`font-black tracking-tighter ${isLg ? 'text-4xl' : 'text-xl'}`} style={{ color }}>
           {score !== null ? animatedScore : '--'}
         </span>
-        <span className={`font-semibold ${isLg ? 'text-xs' : 'text-[9px]'} text-gray-500`}>{grade}</span>
+        <span className={`font-semibold ${isLg ? 'text-xs' : 'text-[9px]'}`} style={{ color: subColor }}>{grade}</span>
       </div>
     </div>
   );

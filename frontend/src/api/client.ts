@@ -1,4 +1,4 @@
-import type { DashboardData, Org, Scan, SettingsData, Category, LimitsPackageStatus, ParameterChecklist } from './types';
+import type { DashboardData, Finding, Org, Scan, SettingsData, Category, LimitsPackageStatus, ParameterChecklist } from './types';
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -48,6 +48,10 @@ export const api = {
     request<LimitsPackageStatus>('GET', `/api/orgs/${encodeURIComponent(orgAlias)}/check-limits-package`),
   getCategories: () => request<{ categories: Category[] }>('GET', '/api/categories'),
   getParameterChecklist: () => request<ParameterChecklist>('GET', '/api/parameter-checklist'),
+  getAllFindings: (orgAlias?: string) =>
+    request<{ findings: Finding[] }>('GET', `/api/findings${orgAlias ? `?org_alias=${encodeURIComponent(orgAlias)}` : ''}`),
+  compareScansAnalysis: (scanId: number, prevScanId: number) =>
+    request<{ analysis: string }>('POST', '/api/scans/compare-analysis', { scan_id: scanId, prev_scan_id: prevScanId }),
   resolveFinding: (id: number) => request<{ ok: boolean }>('POST', `/api/findings/${id}/resolve`),
   unresolveFinding: (id: number) => request<{ ok: boolean }>('POST', `/api/findings/${id}/unresolve`),
 };

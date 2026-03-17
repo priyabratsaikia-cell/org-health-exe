@@ -21,7 +21,7 @@ const MODEL_LABELS: Record<string, string> = {
 export default function Topbar() {
   const location = useLocation();
   const { state, dispatch } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

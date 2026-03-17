@@ -1,6 +1,7 @@
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import GlassCard from '../ui/GlassCard';
 import AgentPulse from '../ui/AgentPulse';
+import { useColors } from '@/context/AppContext';
 import type { DrillFilter } from '@/api/types';
 
 interface Props {
@@ -17,6 +18,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 };
 
 export default function SeverityDoughnut({ severityTotals, onDrill }: Props) {
+  const C = useColors();
   const data = ['Critical', 'High', 'Medium', 'Low', 'Info'].map(name => ({
     name,
     value: severityTotals[name] || 0,
@@ -27,16 +29,16 @@ export default function SeverityDoughnut({ severityTotals, onDrill }: Props) {
   if (total === 0) {
     return (
       <GlassCard className="p-4">
-        <h4 className="text-sm font-bold text-gray-300 mb-3">Findings by Severity</h4>
-        <div className="h-48 flex items-center justify-center text-gray-600 text-sm">No findings yet</div>
+        <h4 className="text-sm font-bold mb-3" style={{ color: C.gray10 }}>Findings by Severity</h4>
+        <div className="h-48 flex items-center justify-center text-sm" style={{ color: C.gray60 }}>No findings yet</div>
       </GlassCard>
     );
   }
 
   return (
     <GlassCard className="p-4">
-      <h4 className="text-sm font-bold text-gray-300 mb-1">Findings by Severity</h4>
-      <p className="text-[10px] text-gray-500 mb-3">Click a slice to drill down</p>
+      <h4 className="text-sm font-bold mb-1" style={{ color: C.gray10 }}>Findings by Severity</h4>
+      <p className="text-[10px] mb-3" style={{ color: C.gray50 }}>Click a slice to drill down</p>
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -56,11 +58,11 @@ export default function SeverityDoughnut({ severityTotals, onDrill }: Props) {
               }}
             >
               {data.map((entry) => (
-                <Cell key={entry.name} fill={SEVERITY_COLORS[entry.name] || '#6B7280'} opacity={0.85} />
+                <Cell key={entry.name} fill={SEVERITY_COLORS[entry.name] || '#6F6F6F'} opacity={0.85} />
               ))}
             </Pie>
             <Tooltip
-              contentStyle={{ backgroundColor: '#1F2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+              contentStyle={{ backgroundColor: C.gray90, border: `1px solid ${C.gray70}`, borderRadius: 0, fontSize: 12, color: C.gray10 }}
               formatter={(value, name) => [`${value} (${Math.round(Number(value) / total * 100)}%)`, name]}
             />
           </PieChart>
@@ -71,17 +73,18 @@ export default function SeverityDoughnut({ severityTotals, onDrill }: Props) {
           <button
             key={d.name}
             onClick={() => onDrill?.({ type: 'severity', value: d.name, label: `${d.name} Findings` })}
-            className="flex items-center gap-1.5 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1.5 text-[10px] font-medium transition-colors"
+            style={{ color: C.gray40 }}
           >
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_COLORS[d.name] }} />
             {d.name}: {d.value}
           </button>
         ))}
       </div>
-      <div className="flex items-start gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-start gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${C.gray80}` }}>
         <AgentPulse size="sm" />
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          {total} total findings. <strong className="text-gray-300">{critHigh} ({Math.round(critHigh / total * 100)}%)</strong> are Critical or High severity.
+        <p className="text-[11px] leading-relaxed" style={{ color: C.gray40 }}>
+          {total} total findings. <strong style={{ color: C.gray30 }}>{critHigh} ({Math.round(critHigh / total * 100)}%)</strong> are Critical or High severity.
         </p>
       </div>
     </GlassCard>

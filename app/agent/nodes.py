@@ -45,7 +45,10 @@ def set_progress_callback(cb):
 
 async def _emit(msg: str, step: int = 0, total: int = 5, percent: int = 0):
     if _progress_callback:
-        await _progress_callback(msg, step, total, percent)
+        try:
+            await _progress_callback(msg, step, total, percent)
+        except Exception:
+            logger.debug("Progress emit failed (client may have disconnected)")
 
 
 # ── Node 1: Collect Metadata ─────────────────────────────────────────

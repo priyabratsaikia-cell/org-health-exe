@@ -38,7 +38,8 @@ export default function Scans() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { state, toast } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
+  const hoverBg = state.resolvedTheme === 'light' ? '#EBEBEB' : '#353535';
 
   const load = useCallback(async () => {
     try {
@@ -205,7 +206,7 @@ export default function Scans() {
                   className="grid grid-cols-[1fr_80px_100px_90px_140px_48px] gap-2 items-center px-5 py-3 cursor-pointer transition-colors"
                   style={{ background: C.gray90, borderBottom: `1px solid ${C.gray80}` }}
                   onClick={() => navigate(`/scans/${s.id}`)}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#353535')}
+                  onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = C.gray90)}
                 >
                   {/* Org */}

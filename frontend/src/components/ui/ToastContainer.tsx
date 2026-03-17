@@ -11,7 +11,7 @@ const icons = {
 
 export default function ToastContainer() {
   const { state, dispatch } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
 
   const borderColors = {
     success: C.supportSuccess,

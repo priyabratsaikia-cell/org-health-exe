@@ -43,7 +43,7 @@ function CarbonTag({ text, color, type = 'default' }: { text: string; color: str
 
 export default function NewScan() {
   const { state, dispatch, toast } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
   const [running, setRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [stepStatus, setStepStatus] = useState<('pending' | 'active' | 'done' | 'error')[]>(['pending', 'pending', 'pending', 'pending']);

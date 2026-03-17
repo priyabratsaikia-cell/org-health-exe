@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react';
+import { useColors } from '@/context/AppContext';
 
 interface Props {
   search: string;
@@ -19,21 +20,30 @@ export default function FindingsFilter({
   unresolvedOnly, onUnresolvedChange,
   categories,
 }: Props) {
-  const selectClass = 'bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-gray-300 px-2.5 py-1.5 focus:outline-none focus:border-accent/50 transition-colors';
+  const C = useColors();
+  const selectStyle: React.CSSProperties = {
+    background: C.gray90,
+    border: `1px solid ${C.gray80}`,
+    color: C.gray30,
+    borderRadius: 8,
+    fontSize: 12,
+    padding: '6px 10px',
+  };
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: C.gray50 }} />
         <input
           type="text"
           value={search}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="Search findings..."
-          className="bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-gray-300 pl-8 pr-3 py-1.5 w-52 focus:outline-none focus:border-accent/50 placeholder:text-gray-600 transition-colors"
+          className="rounded-lg text-xs pl-8 pr-3 py-1.5 w-52 focus:outline-none transition-colors"
+          style={{ background: C.gray90, border: `1px solid ${C.gray80}`, color: C.gray30 }}
         />
       </div>
-      <select value={severity} onChange={e => onSeverityChange(e.target.value)} className={selectClass}>
+      <select value={severity} onChange={e => onSeverityChange(e.target.value)} style={selectStyle} className="focus:outline-none">
         <option value="">All Severities</option>
         <option>Critical</option>
         <option>High</option>
@@ -41,11 +51,11 @@ export default function FindingsFilter({
         <option>Low</option>
         <option>Info</option>
       </select>
-      <select value={category} onChange={e => onCategoryChange(e.target.value)} className={selectClass}>
+      <select value={category} onChange={e => onCategoryChange(e.target.value)} style={selectStyle} className="focus:outline-none">
         <option value="">All Categories</option>
         {categories.map(c => <option key={c}>{c}</option>)}
       </select>
-      <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+      <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: C.gray40 }}>
         <input
           type="checkbox"
           checked={unresolvedOnly}

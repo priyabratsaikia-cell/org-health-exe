@@ -269,6 +269,13 @@ async def delete_scan(scan_id: int):
 
 # ── Findings ──────────────────────────────────────────────────────────
 
+@app.get("/api/findings")
+async def list_all_findings(org_alias: str | None = Query(default=None)):
+    """Return all findings from completed scans (excludes running scans)."""
+    findings = await db.get_all_findings(org_alias)
+    return {"findings": findings}
+
+
 @app.post("/api/findings/{finding_id}/resolve")
 async def resolve_finding(finding_id: int):
     await db.resolve_finding(finding_id)
@@ -279,6 +286,88 @@ async def resolve_finding(finding_id: int):
 async def unresolve_finding(finding_id: int):
     await db.unresolve_finding(finding_id)
     return {"ok": True}
+
+
+# ── Scan Comparison ───────────────────────────────────────────────────
+
+@app.post("/api/scans/compare-analysis")
+async def compare_scans_analysis(data: dict):
+    """Return an LLM-generated analysis comparing two scans."""
+    from app.services.llm import invoke_llm
+
+    scan_id = data.get("scan_id")
+    prev_scan_id = data.get("prev_scan_id")
+    if not scan_id or not prev_scan_id:
+        raise HTTPException(status_code=400, detail="scan_id and prev_scan_id are required")
+    if not app_state.gemini_api_key:
+        raise HTTPException(status_code=400, detail="Gemini API key not configured. Go to Settings.")
+
+    scan = await db.get_scan(scan_id)
+    prev_scan = await db.get_scan(prev_scan_id)
+    if not scan or not prev_scan:
+        raise HTTPException(status_code=404, detail="One or both scans not found")
+
+    cur_cats = json.loads(scan.get("category_scores") or "{}")
+    prev_cats = json.loads(prev_scan.get("category_scores") or "{}")
+    cur_score = scan.get("health_score", 0)
+    prev_score = prev_scan.get("health_score", 0)
+
+    diff_lines = []
+    all_keys = sorted(set(list(cur_cats.keys()) + list(prev_cats.keys())))
+    for k in all_keys:
+        c = cur_cats.get(k, 0)
+        p = prev_cats.get(k, 0)
+        delta = c - p
+        if delta != 0:
+            diff_lines.append(f"- {k}: {p} → {c} ({'+' if delta > 0 else ''}{delta})")
+        else:
+            diff_lines.append(f"- {k}: {c} (unchanged)")
+
+    system_prompt = (
+        "You are a Salesforce org health expert. Analyze the changes between two health scans "
+        "and provide a concise, actionable analysis.\n\n"
+        "FORMAT YOUR RESPONSE EXACTLY LIKE THIS:\n"
+        "## Key Changes\n"
+        "- Bullet point about a specific change\n"
+        "- Another bullet point\n\n"
+        "## What Improved\n"
+        "- Specific improvement with category name and numbers\n\n"
+        "## What Needs Attention\n"
+        "- Specific area of concern\n\n"
+        "## Recommended Actions\n"
+        "- Actionable recommendation\n\n"
+        "RULES:\n"
+        "- Use ## for section headers\n"
+        "- Use - for every bullet point\n"
+        "- Use **bold** for emphasis on key terms\n"
+        "- Every piece of content must be a bullet point under a header\n"
+        "- Be specific about category names and score changes\n"
+        "- Keep each bullet to 1-2 sentences max\n"
+        "- 3-5 bullets per section"
+    )
+    user_prompt = (
+        f"## Health Score Change\n"
+        f"Previous scan: {prev_score}/100\n"
+        f"Current scan: {cur_score}/100\n"
+        f"Delta: {'+' if cur_score - prev_score > 0 else ''}{cur_score - prev_score}\n\n"
+        f"## Category Score Changes\n"
+        + "\n".join(diff_lines)
+        + f"\n\n## Previous Scan Summary\n{prev_scan.get('summary', 'N/A')}"
+        + f"\n\n## Current Scan Summary\n{scan.get('summary', 'N/A')}"
+    )
+
+    try:
+        analysis = await invoke_llm(
+            api_key=app_state.gemini_api_key,
+            model=app_state.gemini_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.3,
+        )
+        return {"analysis": analysis}
+    except Exception as exc:
+        logger.exception("Compare analysis LLM call failed")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {exc}")
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────
@@ -345,14 +434,26 @@ async def _handle_scan(ws: WebSocket, data: dict):
     scan_id = await db.create_scan(org_alias, org_username)
     app_state.running_scans.add(org_alias)
 
+    ws_alive = True
+
+    async def _safe_ws_send(payload: dict):
+        nonlocal ws_alive
+        if not ws_alive:
+            return
+        try:
+            await ws.send_json(payload)
+        except (WebSocketDisconnect, RuntimeError):
+            ws_alive = False
+            logger.debug("WebSocket closed — suppressing further sends")
+
     async def progress_cb(message: str, step: int = 0, total: int = 4, percent: int = 0):
-        await ws.send_json({
+        await _safe_ws_send({
             "type": "progress", "step": step, "total_steps": total,
             "message": message, "percent": percent,
         })
 
     try:
-        await ws.send_json({"type": "started", "scan_id": scan_id, "org_alias": org_alias})
+        await _safe_ws_send({"type": "started", "scan_id": scan_id, "org_alias": org_alias})
 
         report = await run_health_scan(
             gemini_api_key=app_state.gemini_api_key,
@@ -405,12 +506,12 @@ async def _handle_scan(ws: WebSocket, data: dict):
                 effort=f.get("effort", ""),
             )
 
-        await ws.send_json({"type": "complete", "scan_id": scan_id})
+        await _safe_ws_send({"type": "complete", "scan_id": scan_id})
 
     except Exception as exc:
         logger.exception("Health scan pipeline failed")
         await db.update_scan(scan_id, status="failed", completed_at=datetime.now(timezone.utc).isoformat())
-        await ws.send_json({"type": "error", "message": f"Scan failed: {exc}"})
+        await _safe_ws_send({"type": "error", "message": f"Scan failed: {exc}"})
     finally:
         app_state.running_scans.discard(org_alias)
 

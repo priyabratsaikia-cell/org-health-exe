@@ -16,6 +16,7 @@ import DashboardAurora from '@/pages/DashboardAurora';
 import Scans from '@/pages/Scans';
 import NewScan from '@/pages/NewScan';
 import ScanDetail from '@/pages/ScanDetail';
+import FindingDetailPage from '@/pages/FindingDetailPage';
 import Settings from '@/pages/Settings';
 import ComplianceCorner from '@/pages/ComplianceCorner';
 import NotFound from '@/pages/NotFound';
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/scans" element={<Scans />} />
             <Route path="/scans/new" element={<NewScan />} />
             <Route path="/scans/:id" element={<ScanDetail />} />
+            <Route path="/scans/:scanId/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="/compliance" element={<ComplianceCorner />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />

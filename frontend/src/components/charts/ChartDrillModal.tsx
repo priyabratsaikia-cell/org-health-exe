@@ -1,12 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Finding, DrillFilter } from '@/api/types';
 import SeverityBadge from '../ui/SeverityBadge';
-import EffortTag from '../ui/EffortTag';
-import Button from '../ui/Button';
-import { api } from '@/api/client';
-import { useApp } from '@/context/AppContext';
+import { useColors } from '@/context/AppContext';
 
 interface Props {
   filter: DrillFilter | null;
@@ -16,32 +13,34 @@ interface Props {
   onFindingsChange?: () => void;
 }
 
-export default function ChartDrillModal({ filter, findings, scanId, onClose, onFindingsChange }: Props) {
+export default function ChartDrillModal({ filter, findings, onClose }: Props) {
   const navigate = useNavigate();
-  const { toast } = useApp();
+  const C = useColors();
+
+  const EFFORT_REVERSE: Record<string, string[]> = {
+    Low: ['Quick Fix', 'Low'],
+    Medium: ['Medium'],
+    High: ['Large', 'High'],
+  };
 
   const filtered = filter
     ? findings.filter(f => {
-        if (filter.type === 'severity') return f.severity === filter.value;
+        if (filter.type === 'open') return !f.is_resolved;
+        if (filter.type === 'severity') return f.severity === filter.value && !f.is_resolved;
         if (filter.type === 'category') return f.category === filter.value;
-        if (filter.type === 'effort') return f.effort === filter.value;
+        if (filter.type === 'effort') {
+          const originals = EFFORT_REVERSE[filter.value];
+          return originals ? originals.includes(f.effort) : f.effort === filter.value;
+        }
         return true;
       })
     : [];
 
-  const handleResolve = async (f: Finding) => {
-    try {
-      if (f.is_resolved) {
-        await api.unresolveFinding(f.id);
-        toast('Marked as unresolved', 'success');
-      } else {
-        await api.resolveFinding(f.id);
-        toast('Marked as resolved', 'success');
-      }
-      onFindingsChange?.();
-    } catch (e: any) {
-      toast(e.message, 'error');
+  const handleViewDetails = (f: Finding) => {
+    if (filter) {
+      sessionStorage.setItem('dashboard_drill_filter', JSON.stringify(filter));
     }
+    navigate(`/scans/${f.scan_id}/findings/${f.id}`);
   };
 
   return (
@@ -52,7 +51,8 @@ export default function ChartDrillModal({ filter, findings, scanId, onClose, onF
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            className="fixed inset-0 backdrop-blur-sm z-50"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
             onClick={onClose}
           />
           <motion.div
@@ -60,73 +60,64 @@ export default function ChartDrillModal({ filter, findings, scanId, onClose, onF
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-[480px] max-w-[90vw] bg-surface border-l border-white/[0.06] z-50 flex flex-col shadow-2xl"
+            className="fixed right-0 top-[72px] bottom-[72px] w-[480px] max-w-[90vw] z-50 flex flex-col shadow-2xl overflow-hidden"
+            style={{ background: C.gray90, borderLeft: `1px solid ${C.gray80}` }}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+            <div className="h-[3px] flex-shrink-0 accent-gradient" />
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${C.gray80}` }}>
               <div>
-                <h3 className="text-base font-bold text-gray-100">{filter.label}</h3>
-                <span className="text-xs text-gray-500">{filtered.length} finding{filtered.length !== 1 ? 's' : ''}</span>
+                <h3 className="text-base font-bold" style={{ color: C.gray10 }}>{filter.label}</h3>
+                <span className="text-xs" style={{ color: C.gray50 }}>{filtered.length} finding{filtered.length !== 1 ? 's' : ''}</span>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-gray-400 hover:text-gray-200 transition-colors">
+              <button onClick={onClose} className="p-1.5 transition-colors" style={{ color: C.gray40 }}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {filtered.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 text-sm">No findings match this filter</div>
+                <div className="text-center py-12 text-sm" style={{ color: C.gray50 }}>No findings match this filter</div>
               ) : (
                 filtered.map(f => (
-                  <div key={f.id} className="glass-card p-4 space-y-2.5">
+                  <div key={f.id} className="p-4 space-y-2.5" style={{ background: C.gray100, borderBottom: `1px solid ${C.gray80}` }}>
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-sm font-semibold text-gray-200 leading-snug">{f.title}</h4>
+                      <h4 className="text-sm font-semibold leading-snug" style={{ color: C.gray10 }}>{f.title}</h4>
                       <SeverityBadge severity={f.severity} />
                     </div>
-                    <p className="text-xs text-gray-400 leading-relaxed line-clamp-3">{f.description}</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {f.effort && <EffortTag effort={f.effort} />}
-                      <span className="text-[10px] text-gray-500">{f.category}</span>
-                    </div>
+                    {f.category && (
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold tracking-wide"
+                        style={{ background: `${C.supportSuccess}15`, color: C.green40, border: `1px solid ${C.supportSuccess}30` }}
+                      >
+                        {f.category}
+                      </span>
+                    )}
+                    <p className="text-xs leading-relaxed line-clamp-3" style={{ color: C.gray40 }}>{f.description}</p>
                     {f.affected_components.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {f.affected_components.slice(0, 5).map((c, i) => (
-                          <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent/10 text-accent-light border border-accent/20">
+                          <span key={i} className="text-[10px] font-mono px-1.5 py-0.5" style={{ background: `${C.gray80}`, color: C.gray30, border: `1px solid ${C.gray70}` }}>
                             {c}
                           </span>
                         ))}
                         {f.affected_components.length > 5 && (
-                          <span className="text-[10px] text-gray-500">+{f.affected_components.length - 5} more</span>
+                          <span className="text-[10px]" style={{ color: C.gray50 }}>+{f.affected_components.length - 5} more</span>
                         )}
                       </div>
                     )}
-                    <button
-                      onClick={() => handleResolve(f)}
-                      className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
-                        f.is_resolved
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
-                      }`}
-                    >
-                      {f.is_resolved ? 'Resolved' : 'Mark as Resolved'}
-                    </button>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleViewDetails(f)}
+                        className="flex items-center gap-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                        style={{ color: C.blue40 }}
+                      >
+                        View Details <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
-
-            {scanId && (
-              <div className="px-5 py-3 border-t border-white/[0.06]">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<ExternalLink className="w-3.5 h-3.5" />}
-                  onClick={() => { onClose(); navigate(`/scans/${scanId}`); }}
-                  className="w-full justify-center"
-                >
-                  View Full Report
-                </Button>
-              </div>
-            )}
           </motion.div>
         </>
       )}

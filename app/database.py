@@ -342,6 +342,38 @@ async def get_findings(scan_id: int) -> list[dict]:
         return rows
 
 
+async def get_all_findings(org_alias: str | None = None) -> list[dict]:
+    """Return findings from all completed (non-running) scans."""
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        if org_alias:
+            cur = await db.execute(
+                """SELECT f.* FROM findings f
+                   JOIN scans s ON f.scan_id = s.id
+                   WHERE s.status = 'completed' AND s.org_alias = ?
+                   ORDER BY CASE f.severity
+                     WHEN 'Critical' THEN 0 WHEN 'High' THEN 1
+                     WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 4 END""",
+                (org_alias,),
+            )
+        else:
+            cur = await db.execute(
+                """SELECT f.* FROM findings f
+                   JOIN scans s ON f.scan_id = s.id
+                   WHERE s.status = 'completed'
+                   ORDER BY CASE f.severity
+                     WHEN 'Critical' THEN 0 WHEN 'High' THEN 1
+                     WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 4 END"""
+            )
+        rows = [dict(r) for r in await cur.fetchall()]
+        for r in rows:
+            try:
+                r["affected_components"] = json.loads(r["affected_components"] or "[]")
+            except (json.JSONDecodeError, TypeError):
+                r["affected_components"] = []
+        return rows
+
+
 async def resolve_finding(finding_id: int):
     async with _connect() as db:
         await db.execute(
@@ -438,7 +470,8 @@ async def get_dashboard_extended(org_alias: str | None = None) -> dict:
         cur = await db.execute(
             f"""SELECT id, org_alias, health_score, category_scores,
                       total_findings, critical_count, high_count, medium_count,
-                      low_count, info_count, started_at, completed_at
+                      low_count, info_count, started_at, completed_at,
+                      (SELECT COUNT(*) FROM findings WHERE scan_id = scans.id AND is_resolved = 1) AS resolved_count
                FROM scans {scan_where}
                ORDER BY completed_at DESC LIMIT 10""",
             scan_params,

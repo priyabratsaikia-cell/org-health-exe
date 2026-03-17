@@ -122,15 +122,14 @@ export default function DashboardMicrosoft() {
   useEffect(() => { load(); }, [load]);
 
   const handleDrill = useCallback(async (filter: DrillFilter) => {
-    if (!latestScanId) return;
     try {
-      const scan = await api.getScan(latestScanId);
-      setDrillFindings(scan.findings || []);
+      const { findings } = await api.getAllFindings(state.selectedOrg?.alias);
+      setDrillFindings(findings);
       setDrillFilter(filter);
     } catch (e: any) {
       toast('Failed to load findings: ' + e.message, 'error');
     }
-  }, [latestScanId, toast]);
+  }, [state.selectedOrg?.alias, toast]);
 
   if (loading) {
     return (
@@ -415,7 +414,7 @@ export default function DashboardMicrosoft() {
         findings={drillFindings}
         scanId={latestScanId}
         onClose={() => setDrillFilter(null)}
-        onFindingsChange={() => { load(); if (latestScanId) api.getScan(latestScanId).then(s => setDrillFindings(s.findings || [])); }}
+        onFindingsChange={() => { load(); api.getAllFindings(state.selectedOrg?.alias).then(r => setDrillFindings(r.findings)); }}
       />
     </PageTransition>
   );

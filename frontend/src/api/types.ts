@@ -45,6 +45,7 @@ export interface Scan {
   parameter_coverage_json: string | null;
   governor_limits_trends_json: string | null;
   parameter_results_json: string | null;
+  resolved_count?: number;
   started_at: string;
   completed_at: string | null;
   findings?: Finding[];
@@ -192,7 +193,7 @@ export type WsMessage =
 export type SeverityLevel = 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
 
 export interface DrillFilter {
-  type: 'severity' | 'category' | 'effort';
+  type: 'severity' | 'category' | 'effort' | 'open';
   value: string;
   label: string;
 }

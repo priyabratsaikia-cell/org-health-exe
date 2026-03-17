@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
+import { useColors } from '@/context/AppContext';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'accent' | 'secondary' | 'ghost' | 'danger';
@@ -8,10 +9,10 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants = {
-  accent: 'accent-gradient text-white shadow-glow hover:shadow-glow-lg',
-  secondary: 'bg-white/[0.06] text-gray-300 border border-white/[0.08] hover:border-accent/40 hover:bg-accent/5',
-  ghost: 'bg-transparent text-gray-400 hover:bg-white/[0.04] hover:text-gray-200',
-  danger: 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20',
+  accent: 'text-white',
+  secondary: 'border',
+  ghost: 'bg-transparent',
+  danger: 'border',
 };
 
 const sizes = {
@@ -21,9 +22,19 @@ const sizes = {
 };
 
 export default function Button({ variant = 'accent', size = 'md', icon, loading, children, className = '', disabled, ...rest }: Props) {
+  const C = useColors();
+
+  const variantStyles: Record<string, CSSProperties> = {
+    accent: { background: C.blue60, color: '#FFFFFF' },
+    secondary: { background: `${C.gray80}40`, color: C.gray30, borderColor: C.gray80 },
+    ghost: { background: 'transparent', color: C.gray40 },
+    danger: { background: `${C.supportError}15`, color: C.red40, borderColor: `${C.supportError}30` },
+  };
+
   return (
     <button
-      className={`inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center font-semibold transition-all duration-150 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      style={variantStyles[variant]}
       disabled={disabled || loading}
       {...rest}
     >

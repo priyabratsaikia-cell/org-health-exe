@@ -2,6 +2,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 
 import GlassCard from '../ui/GlassCard';
 import AgentPulse from '../ui/AgentPulse';
 import type { DrillFilter } from '@/api/types';
+import { useApp } from '@/context/AppContext';
+import { getColors } from '@/utils/colors';
 
 interface Props {
   riskCategories: { category: string; cnt: number }[];
@@ -9,33 +11,41 @@ interface Props {
 }
 
 export default function RiskBarChart({ riskCategories, onDrill }: Props) {
+  const { state } = useApp();
+  const C = getColors(state.accentColor, state.resolvedTheme);
+  const isLight = state.resolvedTheme === 'light';
+
   if (riskCategories.length === 0) {
     return (
       <GlassCard className="p-4">
-        <h4 className="text-sm font-bold text-gray-300 mb-3">Top Risk Categories</h4>
-        <div className="h-48 flex items-center justify-center text-gray-600 text-sm">No findings by category</div>
+        <h4 className="text-sm font-bold mb-3" style={{ color: C.gray10 }}>Top Risk Categories</h4>
+        <div className="h-48 flex items-center justify-center text-sm" style={{ color: C.gray60 }}>No findings by category</div>
       </GlassCard>
     );
   }
 
-  const data = riskCategories.map((r, i) => ({
+  const top5 = riskCategories.slice(0, 5);
+  const barOpacities = [0.85, 0.7, 0.55, 0.45, 0.35];
+  const data = top5.map((r, i) => ({
     name: r.category || 'Unknown',
     value: r.cnt,
-    fill: `rgba(${208 + i * 4}, ${74 - i * 10}, ${2 + i * 12}, 0.7)`,
+    opacity: barOpacities[i] || 0.3,
   }));
+
+  const cursorFill = isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)';
 
   return (
     <GlassCard className="p-4">
-      <h4 className="text-sm font-bold text-gray-300 mb-1">Top Risk Categories</h4>
-      <p className="text-[10px] text-gray-500 mb-3">Click a bar to filter findings</p>
+      <h4 className="text-sm font-bold mb-1" style={{ color: C.gray10 }}>Top Risk Categories</h4>
+      <p className="text-[10px] mb-3" style={{ color: C.gray50 }}>Click a bar to filter findings</p>
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ left: 0, right: 12 }}>
-            <XAxis type="number" tick={{ fill: '#6B7280', fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} width={100} />
+            <XAxis type="number" tick={{ fill: C.gray50, fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fill: C.gray40, fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} width={100} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#1F2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-              cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+              contentStyle={{ backgroundColor: C.gray90, border: `1px solid ${C.gray70}`, borderRadius: 0, fontSize: 12, color: C.gray10 }}
+              cursor={{ fill: cursorFill }}
             />
             <Bar
               dataKey="value"
@@ -46,16 +56,16 @@ export default function RiskBarChart({ riskCategories, onDrill }: Props) {
               }}
             >
               {data.map((entry, i) => (
-                <Cell key={i} fill={entry.fill} />
+                <Cell key={i} fill={C.blue60} opacity={entry.opacity} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex items-start gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-start gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${C.gray80}` }}>
         <AgentPulse size="sm" />
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          <strong className="text-gray-300">{data[0]?.name}</strong> has the most open findings ({data[0]?.value}).
+        <p className="text-[11px] leading-relaxed" style={{ color: C.gray40 }}>
+          <strong style={{ color: C.gray30 }}>{data[0]?.name}</strong> has the most open findings ({data[0]?.value}).
         </p>
       </div>
     </GlassCard>

@@ -27,7 +27,7 @@ const dashboardVariants = [
 
 export default function Sidebar() {
   const { state } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
   const location = useLocation();
   const connected = !!state.selectedOrg;
   const orgLabel = state.selectedOrg
@@ -75,7 +75,7 @@ export default function Sidebar() {
                   <div
                     className="flex items-center gap-3 px-5 py-2.5 text-[14px] font-normal transition-colors"
                     style={{
-                      color: isActive ? C.white : C.gray40,
+                      color: isActive ? C.gray10 : C.gray40,
                       background: isActive ? C.gray100 : 'transparent',
                       borderLeft: isActive ? `3px solid ${C.blue60}` : '3px solid transparent',
                     }}
@@ -114,7 +114,7 @@ export default function Sidebar() {
                       <div
                         className="flex items-center gap-2.5 px-4 py-2 text-[12px] font-normal transition-colors"
                         style={{
-                          color: isActive ? C.white : C.gray50,
+                          color: isActive ? C.gray10 : C.gray50,
                           background: isActive ? `${C.blue60}15` : 'transparent',
                         }}
                         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = C.gray80; }}
@@ -167,7 +167,7 @@ export default function Sidebar() {
             <div
               className="flex items-center gap-3 px-5 py-2.5 text-[14px] font-normal transition-colors"
               style={{
-                color: isActive ? C.white : C.gray40,
+                color: isActive ? C.gray10 : C.gray40,
                 background: isActive ? C.gray100 : 'transparent',
                 borderLeft: isActive ? `3px solid ${C.blue60}` : '3px solid transparent',
               }}

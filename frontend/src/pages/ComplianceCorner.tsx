@@ -5,7 +5,7 @@ import { getColors } from '@/utils/colors';
 
 export default function ComplianceCorner() {
   const { state } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
   return (
     <PageTransition>
       <div className="-m-6 flex flex-col items-center justify-center" style={{ minHeight: 'calc(100vh - 72px)', background: C.gray100 }}>

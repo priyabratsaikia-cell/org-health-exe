@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight,
   Code2, BarChart3, Info, X, ExternalLink, CheckCircle, Activity,
-  ArrowLeft, FileText, Shield, Loader2, Layers
+  Loader2, ArrowLeft
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import PageTransition from '@/components/layout/PageTransition';
@@ -54,13 +54,11 @@ const STATUS_IBM: Record<string, { bg: string; color: string; label: string }> =
   PENDING: { bg: '#4589FF20', color: '#4589FF', label: 'PENDING' },
 };
 
-const S = getColors('blue');
-
-function CarbonTile({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+function CarbonTile({ children, className = '', style, C }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; C: ReturnType<typeof getColors> }) {
   return (
     <div
       className={className}
-      style={{ background: S.gray90, borderBottom: `1px solid ${S.gray80}`, ...style }}
+      style={{ background: C.gray90, borderBottom: `1px solid ${C.gray80}`, ...style }}
     >
       {children}
     </div>
@@ -86,29 +84,30 @@ function StatusBadge({ status }: { status: string }) {
   return <CarbonTag text={s.label} color={s.color} />;
 }
 
-function ScoringMethodologyModal({ open, onClose, categoryDetails, catData }: {
+function ScoringMethodologyModal({ open, onClose, categoryDetails, catData, C }: {
   open: boolean;
   onClose: () => void;
   categoryDetails: CategoryDetail[];
   catData: { name: string; score: number }[];
+  C: ReturnType<typeof getColors>;
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.65)' }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
         transition={{ duration: 0.2 }}
         className="w-full max-w-2xl max-h-[80vh] overflow-y-auto mx-4"
-        style={{ background: S.gray90, border: `1px solid ${S.gray70}` }}
+        style={{ background: C.gray90, border: `1px solid ${C.gray70}` }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between" style={{ background: S.gray90, borderBottom: `1px solid ${S.gray80}` }}>
-          <h3 className="text-[16px] font-semibold" style={{ color: S.gray10, fontFamily: '"IBM Plex Sans", sans-serif' }}>Scoring Methodology</h3>
-          <button onClick={onClose} className="p-1 transition-colors" style={{ color: S.gray50 }}
-            onMouseEnter={e => (e.currentTarget.style.color = S.gray10)}
-            onMouseLeave={e => (e.currentTarget.style.color = S.gray50)}
+        <div className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between" style={{ background: C.gray90, borderBottom: `1px solid ${C.gray80}` }}>
+          <h3 className="text-[16px] font-semibold" style={{ color: C.gray10, fontFamily: '"IBM Plex Sans", sans-serif' }}>Scoring Methodology</h3>
+          <button onClick={onClose} className="p-1 transition-colors" style={{ color: C.gray50 }}
+            onMouseEnter={e => (e.currentTarget.style.color = C.gray10)}
+            onMouseLeave={e => (e.currentTarget.style.color = C.gray50)}
           >
             <X className="w-5 h-5" />
           </button>
@@ -116,72 +115,72 @@ function ScoringMethodologyModal({ open, onClose, categoryDetails, catData }: {
 
         <div className="px-6 py-5 space-y-5">
           <div>
-            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>How We Score</h5>
-            <p className="text-[14px] leading-relaxed" style={{ color: S.gray30 }}>
-              Each of the <strong style={{ color: S.gray10 }}>294 parameters</strong> is individually assessed as{' '}
-              <span style={{ color: S.supportSuccess }}>PASS</span> (1.0),{' '}
-              <span style={{ color: S.supportWarning }}>WARN</span> (0.5),{' '}
-              <span style={{ color: S.supportError }}>FAIL</span> (0.0), or{' '}
-              <span style={{ color: S.gray50 }}>SKIP</span> (excluded).
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.gray50 }}>How We Score</h5>
+            <p className="text-[14px] leading-relaxed" style={{ color: C.gray30 }}>
+              Each of the <strong style={{ color: C.gray10 }}>294 parameters</strong> is individually assessed as{' '}
+              <span style={{ color: C.supportSuccess }}>PASS</span> (1.0),{' '}
+              <span style={{ color: C.supportWarning }}>WARN</span> (0.5),{' '}
+              <span style={{ color: C.supportError }}>FAIL</span> (0.0), or{' '}
+              <span style={{ color: C.gray50 }}>SKIP</span> (excluded).
             </p>
           </div>
           <div>
-            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Category Score Formula</h5>
-            <div className="p-3 font-mono text-[12px]" style={{ background: S.gray80, color: S.gray20 }}>
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.gray50 }}>Category Score Formula</h5>
+            <div className="p-3 font-mono text-[12px]" style={{ background: C.gray80, color: C.gray20 }}>
               Category Score = (Sum of assessable parameter scores / Count of assessed parameters) &times; 100
             </div>
-            <p className="mt-2 text-[13px]" style={{ color: S.gray40 }}>
+            <p className="mt-2 text-[13px]" style={{ color: C.gray40 }}>
               SKIP and PENDING parameters are excluded from the denominator, so categories aren't penalized for parameters the tool cannot assess.
             </p>
           </div>
           <div>
-            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Overall Health Score Formula</h5>
-            <div className="p-3 font-mono text-[12px]" style={{ background: S.gray80, color: S.gray20 }}>
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.gray50 }}>Overall Health Score Formula</h5>
+            <div className="p-3 font-mono text-[12px]" style={{ background: C.gray80, color: C.gray20 }}>
               Health Score = &Sigma; (Category Score &times; Category Weight) / 100
             </div>
           </div>
           <div>
-            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Category Weights</h5>
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.gray50 }}>Category Weights</h5>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-0">
               {categoryDetails.length > 0 ? categoryDetails.map(c => (
-                <div key={c.key} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${S.gray80}`, borderRight: `1px solid ${S.gray80}` }}>
-                  <span className="text-[12px] truncate" style={{ color: S.gray30 }}>{c.label}</span>
-                  <span className="text-[12px] font-semibold ml-2" style={{ color: S.blue40 }}>{c.weight}%</span>
+                <div key={c.key} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${C.gray80}`, borderRight: `1px solid ${C.gray80}` }}>
+                  <span className="text-[12px] truncate" style={{ color: C.gray30 }}>{c.label}</span>
+                  <span className="text-[12px] font-semibold ml-2" style={{ color: C.blue40 }}>{c.weight}%</span>
                 </div>
               )) : catData.map(c => (
-                <div key={c.name} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${S.gray80}`, borderRight: `1px solid ${S.gray80}` }}>
-                  <span className="text-[12px] truncate" style={{ color: S.gray30 }}>{c.name}</span>
+                <div key={c.name} className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${C.gray80}`, borderRight: `1px solid ${C.gray80}` }}>
+                  <span className="text-[12px] truncate" style={{ color: C.gray30 }}>{c.name}</span>
                 </div>
               ))}
             </div>
           </div>
           <div>
-            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: S.gray50 }}>Scoring Sources</h5>
+            <h5 className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.gray50 }}>Scoring Sources</h5>
             <div className="space-y-0">
               {[
-                { label: 'Deterministic', desc: 'Scored directly from collected data (SOQL, Tooling API, code analysis, metadata counts)', color: S.supportSuccess },
-                { label: 'AI Inference', desc: 'Scored by Gemini AI when objective thresholds aren\'t possible', color: S.purple40 },
-                { label: 'Manual Review', desc: 'Requires external tools or human review (excluded from scoring)', color: S.gray50 },
+                { label: 'Deterministic', desc: 'Scored directly from collected data (SOQL, Tooling API, code analysis, metadata counts)', color: C.supportSuccess },
+                { label: 'AI Inference', desc: 'Scored by Gemini AI when objective thresholds aren\'t possible', color: C.purple40 },
+                { label: 'Manual Review', desc: 'Requires external tools or human review (excluded from scoring)', color: C.gray50 },
               ].map(src => (
-                <div key={src.label} className="flex gap-3 px-3 py-2.5" style={{ borderBottom: `1px solid ${S.gray80}` }}>
+                <div key={src.label} className="flex gap-3 px-3 py-2.5" style={{ borderBottom: `1px solid ${C.gray80}` }}>
                   <div className="w-1 flex-shrink-0 mt-0.5" style={{ background: src.color, height: 14 }} />
                   <div>
-                    <span className="text-[13px] font-semibold block" style={{ color: S.gray10 }}>{src.label}</span>
-                    <span className="text-[12px]" style={{ color: S.gray40 }}>{src.desc}</span>
+                    <span className="text-[13px] font-semibold block" style={{ color: C.gray10 }}>{src.label}</span>
+                    <span className="text-[12px]" style={{ color: C.gray40 }}>{src.desc}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="pt-3" style={{ borderTop: `1px solid ${S.gray80}` }}>
+          <div className="pt-3" style={{ borderTop: `1px solid ${C.gray80}` }}>
             <a
               href="https://www.pwc.com"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-[13px] transition-colors"
-              style={{ color: S.blue40 }}
-              onMouseEnter={e => (e.currentTarget.style.color = S.blue20)}
-              onMouseLeave={e => (e.currentTarget.style.color = S.blue40)}
+              style={{ color: C.blue40 }}
+              onMouseEnter={e => (e.currentTarget.style.color = C.blue20)}
+              onMouseLeave={e => (e.currentTarget.style.color = C.blue40)}
             >
               Learn more about our methodology <ExternalLink className="w-3.5 h-3.5" />
             </a>
@@ -194,16 +193,21 @@ function ScoringMethodologyModal({ open, onClose, categoryDetails, catData }: {
 
 export default function ScanDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const qTab = searchParams.get('tab') as TabKey | null;
+  const qFinding = searchParams.get('finding');
   const [scan, setScan] = useState<Scan | null>(null);
   const [loading, setLoading] = useState(true);
   const [sevFilter, setSevFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [methodologyOpen, setMethodologyOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [coverageDrillType, setCoverageDrillType] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>(qTab || 'findings');
   const navigate = useNavigate();
   const { state, toast } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
+  const hoverBg = state.resolvedTheme === 'light' ? '#EBEBEB' : '#353535';
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -289,11 +293,11 @@ export default function ScanDetail() {
             <span style={{ color: C.gray50 }}>/</span>
             <span className="text-[12px]" style={{ color: C.gray10 }}>In Progress</span>
           </div>
-          <h1 className="text-[28px] font-light tracking-tight mt-2" style={{ color: C.white, fontFamily: '"IBM Plex Sans", sans-serif' }}>
+          <h1 className="text-[28px] font-light tracking-tight mt-2" style={{ color: C.gray10, fontFamily: '"IBM Plex Sans", sans-serif' }}>
             Health Scan In Progress
           </h1>
         </div>
-        <CarbonTile className="p-8 text-center">
+        <CarbonTile C={C} className="p-8 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: C.blue40 }} />
           <p className="text-[14px]" style={{ color: C.gray30 }}>Live updates are being processed. This page will refresh when complete.</p>
         </CarbonTile>
@@ -356,8 +360,8 @@ export default function ScanDetail() {
     : [];
 
   const tabs: { key: TabKey; label: string; count?: number }[] = [
-    { key: 'overview', label: 'Overview' },
     { key: 'findings', label: 'Findings', count: findings.length },
+    { key: 'overview', label: 'Overview' },
     ...(codeAnalysis && codeAnalysis.status === 'completed' ? [{ key: 'code_quality' as TabKey, label: 'Code Quality', count: codeAnalysis.issues_found }] : []),
     ...(paramCoverage ? [{ key: 'coverage' as TabKey, label: 'Coverage' }] : []),
   ];
@@ -371,57 +375,157 @@ export default function ScanDetail() {
             onClose={() => setMethodologyOpen(false)}
             categoryDetails={categoryDetails}
             catData={catData}
+            C={C}
           />
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {coverageDrillType && (() => {
+          let drillParams: { id: string; name: string; category: string; status?: string; score?: number; reason?: string; source?: string }[] = [];
+          if (coverageDrillType === 'Manual Only') {
+            drillParams = (paramCoverage?.not_assessable_params || []).map(p => ({
+              id: p.id, name: p.name, category: '', status: 'SKIP', reason: p.reason,
+            }));
+          } else {
+            drillParams = paramResults.filter(p => {
+              if (coverageDrillType === 'Assessed') return p.status !== 'PENDING' && p.status !== 'SKIP';
+              if (coverageDrillType === 'Deterministic') return p.source?.toLowerCase() === 'deterministic';
+              if (coverageDrillType === 'AI Inferred') return p.source?.toLowerCase() === 'ai_inferred' || p.source?.toLowerCase() === 'ai' || p.source?.toLowerCase() === 'llm';
+              if (coverageDrillType === 'Pending') return p.status === 'PENDING';
+              return false;
+            });
+          }
+
+          const grouped: Record<string, typeof drillParams> = {};
+          for (const p of drillParams) {
+            const cat = p.category || 'Uncategorized';
+            (grouped[cat] ??= []).push(p);
+          }
+          const sortedCategories = Object.keys(grouped).sort();
+          const totalCount = drillParams.length;
+
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 backdrop-blur-sm z-50"
+                style={{ background: 'rgba(0,0,0,0.4)' }}
+                onClick={() => setCoverageDrillType(null)}
+              />
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed right-0 top-[72px] bottom-[72px] w-[520px] max-w-[90vw] z-50 flex flex-col shadow-2xl overflow-hidden"
+                style={{ background: C.gray90, borderLeft: `1px solid ${C.gray80}` }}
+              >
+                <div className="h-[3px] flex-shrink-0" style={{ background: coverageDrillType === 'Assessed' ? C.supportSuccess : coverageDrillType === 'Deterministic' ? C.teal40 : coverageDrillType === 'AI Inferred' ? C.blue40 : coverageDrillType === 'Pending' ? C.supportWarning : C.gray50 }} />
+                <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${C.gray80}` }}>
+                  <div>
+                    <h3 className="text-base font-bold" style={{ color: C.gray10 }}>{coverageDrillType} Parameters</h3>
+                    <span className="text-xs" style={{ color: C.gray50 }}>{totalCount} parameter{totalCount !== 1 ? 's' : ''} &middot; {sortedCategories.length} categor{sortedCategories.length !== 1 ? 'ies' : 'y'}</span>
+                  </div>
+                  <button onClick={() => setCoverageDrillType(null)} className="p-1.5 transition-colors" style={{ color: C.gray40 }}>
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {totalCount === 0 ? (
+                    <div className="text-center py-12 text-sm" style={{ color: C.gray50 }}>No parameters match this filter</div>
+                  ) : (
+                    sortedCategories.map(cat => (
+                      <div key={cat}>
+                        <div className="sticky top-[-1px] z-10 px-5 py-2.5 flex items-center justify-between" style={{ background: C.gray80, borderBottom: `1px solid ${C.gray70}`, marginTop: 0 }}>
+                          <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: C.gray30 }}>{cat}</span>
+                          <span className="text-[11px] font-mono" style={{ color: C.gray50 }}>{grouped[cat].length}</span>
+                        </div>
+                        {grouped[cat].map((p, pi) => {
+                          const statusInfo = STATUS_IBM[p.status || 'PENDING'] || STATUS_IBM.PENDING;
+                          return (
+                            <div
+                              key={p.id}
+                              className="px-5 py-3 space-y-1.5"
+                              style={{ background: C.gray90, borderBottom: pi < grouped[cat].length - 1 ? `1px solid ${C.gray80}40` : `1px solid ${C.gray80}` }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[13px] font-semibold block" style={{ color: C.gray10 }}>{p.name}</span>
+                                  <span className="text-[11px] font-mono" style={{ color: C.gray60 }}>{p.id}</span>
+                                </div>
+                                <CarbonTag text={statusInfo.label} color={statusInfo.color} />
+                              </div>
+                              {p.reason && (
+                                <p className="text-[12px] leading-relaxed" style={{ color: C.gray40 }}>{p.reason}</p>
+                              )}
+                              {p.score != null && p.status !== 'SKIP' && p.status !== 'PENDING' && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex-1 h-1" style={{ background: C.gray80 }}>
+                                    <div className="h-full transition-all" style={{ width: `${Math.min(p.score, 100)}%`, background: p.score >= 75 ? '#42BE65' : p.score >= 50 ? '#F1C21B' : '#FA4D56' }} />
+                                  </div>
+                                  <span className="text-[11px] font-mono min-w-[28px] text-right" style={{ color: C.gray50 }}>{p.score}</span>
+                                </div>
+                              )}
+                              {p.source && (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium mt-0.5"
+                                  style={{ background: `${C.blue40}15`, color: C.blue40, border: `1px solid ${C.blue40}30` }}
+                                >
+                                  {p.source}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
+
       <div>
         {/* Page Header */}
-        <div className="px-6 pt-5 pb-4" style={{ background: C.gray100 }}>
-          <div className="flex items-center gap-2 mb-1">
+        <div className="px-6 py-3 flex items-center justify-between" style={{ background: C.gray100, borderBottom: `1px solid ${C.gray80}` }}>
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/scans')}
-              className="text-[12px] font-normal transition-colors flex items-center gap-1"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 text-[13px] font-medium transition-opacity hover:opacity-80 mr-1"
               style={{ color: C.blue40 }}
-              onMouseEnter={e => (e.currentTarget.style.color = C.blue20)}
-              onMouseLeave={e => (e.currentTarget.style.color = C.blue40)}
             >
-              <ArrowLeft className="w-3 h-3" />
-              Scans
+              <ArrowLeft className="w-4 h-4" />
+              Back
             </button>
-            <span style={{ color: C.gray50 }}>/</span>
-            <span className="text-[12px] font-normal" style={{ color: C.gray10 }}>{scan.org_alias}</span>
-            <span style={{ color: C.gray50 }}>/</span>
-            <span className="text-[12px] font-normal" style={{ color: C.gray10 }}>Report</span>
-          </div>
-          <div className="flex items-end justify-between mt-1">
-            <div>
-              <h1 className="text-[28px] font-light tracking-tight" style={{ color: C.white, fontFamily: '"IBM Plex Sans", sans-serif' }}>
-                Org Health Report
-              </h1>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-[13px]" style={{ color: C.gray50 }}>{fmtDate(scan.started_at)}</span>
+            <span style={{ color: C.gray70 }}>|</span>
+            <span className="text-[13px]" style={{ color: C.gray50 }}>{scan.org_alias}</span>
+            <span style={{ color: C.gray70 }}>|</span>
+            <span className="text-[13px]" style={{ color: C.gray50 }}>{fmtDate(scan.started_at)}</span>
+            <span style={{ color: C.gray70 }}>|</span>
+            <span className="text-[13px]" style={{ color: C.gray50 }}>{fmtNum(scan.total_components || 0)} components</span>
+            {paramCoverage && (
+              <>
                 <span style={{ color: C.gray70 }}>|</span>
-                <span className="text-[13px]" style={{ color: C.gray50 }}>{fmtNum(scan.total_components || 0)} components</span>
-                {paramCoverage && (
-                  <>
-                    <span style={{ color: C.gray70 }}>|</span>
-                    <span className="text-[13px]" style={{ color: C.gray50 }}>{paramCoverage.assessed}/{paramCoverage.total} parameters assessed</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 text-[14px] font-normal transition-colors"
-              style={{ background: C.blue60, color: C.white }}
-              onMouseEnter={e => (e.currentTarget.style.background = C.blue60h)}
-              onMouseLeave={e => (e.currentTarget.style.background = C.blue60)}
-            >
-              <Download className="w-4 h-4" />
-              Export PDF
-            </button>
+                <span className="text-[13px]" style={{ color: C.gray50 }}>{paramCoverage.assessed}/{paramCoverage.total} parameters assessed</span>
+              </>
+            )}
           </div>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2.5 text-[14px] font-normal transition-colors"
+            style={{ background: C.blue60, color: C.white }}
+            onMouseEnter={e => (e.currentTarget.style.background = C.blue60h)}
+            onMouseLeave={e => (e.currentTarget.style.background = C.blue60)}
+          >
+            <Download className="w-4 h-4" />
+            Export PDF
+          </button>
         </div>
 
         {/* Health Score Hero Strip */}
@@ -472,7 +576,7 @@ export default function ScanDetail() {
         {/* Charts Row */}
         <div className={`grid ${trendEntries.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {/* Severity Distribution */}
-          <CarbonTile className="p-5" style={{ borderRight: `1px solid ${C.gray80}` }}>
+          <CarbonTile C={C} className="p-5" style={{ borderRight: `1px solid ${C.gray80}` }}>
             <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Severity Distribution</h4>
             <p className="text-[12px] mb-4" style={{ color: C.gray50 }}>Click bars to filter findings</p>
             <div className="space-y-3">
@@ -512,7 +616,7 @@ export default function ScanDetail() {
           </CarbonTile>
 
           {/* Category Scores */}
-          <CarbonTile className="p-5" style={{ borderRight: trendEntries.length > 0 ? `1px solid ${C.gray80}` : undefined }}>
+          <CarbonTile C={C} className="p-5" style={{ borderRight: trendEntries.length > 0 ? `1px solid ${C.gray80}` : undefined }}>
             <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Category Scores</h4>
             <p className="text-[12px] mb-4" style={{ color: C.gray50 }}>Sorted by risk (lowest first)</p>
             {catBarData.length > 0 ? (
@@ -552,7 +656,7 @@ export default function ScanDetail() {
 
           {/* Limit Trends */}
           {trendEntries.length > 0 && (
-            <CarbonTile className="p-5">
+            <CarbonTile C={C} className="p-5">
               <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Governor Limit Trends</h4>
               <p className="text-[12px] mb-4" style={{ color: C.gray50 }}>7-day snapshot</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -595,7 +699,7 @@ export default function ScanDetail() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className="px-5 py-3 text-[14px] font-normal transition-colors relative"
-              style={{ color: activeTab === tab.key ? C.white : C.gray50 }}
+              style={{ color: activeTab === tab.key ? C.gray10 : C.gray50 }}
             >
               <span>{tab.label}</span>
               {tab.count !== undefined && (
@@ -632,7 +736,7 @@ export default function ScanDetail() {
               transition={{ duration: 0.15 }}
             >
               {/* Executive Summary */}
-              <CarbonTile className="p-5">
+              <CarbonTile C={C} className="p-5">
                 <div className="flex items-start gap-4">
                   <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ background: C.purple60 }}>
                     <span className="text-[10px] font-bold text-white">AI</span>
@@ -648,7 +752,7 @@ export default function ScanDetail() {
 
               {/* Category Score Breakdown */}
               {catData.length > 0 && (
-                <CarbonTile className="p-0">
+                <CarbonTile C={C} className="p-0">
                   <div className="flex items-center justify-between px-5 py-3" style={{ background: C.gray80 }}>
                     <div className="flex items-center gap-2">
                       <BarChart3 className="w-4 h-4" style={{ color: C.blue40 }} />
@@ -670,13 +774,12 @@ export default function ScanDetail() {
                   </div>
 
                   {/* Category Table Header */}
-                  <div className="grid grid-cols-[28px_1fr_60px_1fr_50px_90px] gap-2 px-5 py-2 text-[12px] font-semibold uppercase tracking-wider" style={{ background: C.gray80, color: C.gray30, borderBottom: `1px solid ${C.gray70}` }}>
+                  <div className="grid grid-cols-[28px_1fr_60px_1fr_50px] gap-2 px-5 py-2 text-[12px] font-semibold uppercase tracking-wider" style={{ background: C.gray80, color: C.gray30, borderBottom: `1px solid ${C.gray70}` }}>
                     <span></span>
                     <span>Category</span>
                     <span>Weight</span>
                     <span>Score</span>
                     <span className="text-right">Value</span>
-                    <span className="text-right">Breakdown</span>
                   </div>
 
                   {(categoryDetails.length > 0
@@ -691,7 +794,7 @@ export default function ScanDetail() {
                       <div key={key}>
                         <button
                           onClick={() => toggleCat(key)}
-                          className="w-full grid grid-cols-[28px_1fr_60px_1fr_50px_90px] gap-2 items-center px-5 py-3 text-left transition-colors hover:bg-[#353535]"
+                          className="w-full grid grid-cols-[28px_1fr_60px_1fr_50px] gap-2 items-center px-5 py-3 text-left transition-colors"
                           style={{ borderBottom: `1px solid ${C.gray80}` }}
                         >
                           {isOpen
@@ -706,15 +809,6 @@ export default function ScanDetail() {
                           <span className="text-[13px] font-semibold text-right" style={{ color: barColor }}>
                             {typeof cat.score === 'number' ? cat.score.toFixed(1) : cat.score}
                           </span>
-                          <div className="flex justify-end gap-1.5">
-                            {cat.assessed > 0 && (
-                              <>
-                                {cat.passed > 0 && <CarbonTag text={`${cat.passed}P`} color={C.supportSuccess} />}
-                                {cat.warned > 0 && <CarbonTag text={`${cat.warned}W`} color={C.supportWarning} />}
-                                {cat.failed > 0 && <CarbonTag text={`${cat.failed}F`} color={C.supportError} />}
-                              </>
-                            )}
-                          </div>
                         </button>
 
                         <AnimatePresence initial={false}>
@@ -725,7 +819,7 @@ export default function ScanDetail() {
                                   <span>ID</span><span>Parameter</span><span>Status</span><span>Reason</span><span>Data</span>
                                 </div>
                                 {catParams.map(p => (
-                                  <div key={p.id} className="grid grid-cols-[50px_1fr_70px_1fr_120px] gap-2 px-5 py-2 items-center transition-colors hover:bg-[#1c1c1c]" style={{ borderBottom: `1px solid ${C.gray80}20` }}>
+                                  <div key={p.id} className="grid grid-cols-[50px_1fr_70px_1fr_120px] gap-2 px-5 py-2 items-center transition-colors" style={{ borderBottom: `1px solid ${C.gray80}20` }}>
                                     <span className="text-[12px] font-mono" style={{ color: C.gray60 }}>{p.id}</span>
                                     <span className="text-[12px] truncate" style={{ color: C.gray20 }} title={p.name}>{p.name}</span>
                                     <StatusBadge status={p.status} />
@@ -761,7 +855,7 @@ export default function ScanDetail() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
             >
-              <CarbonTile className="p-5">
+              <CarbonTile C={C} className="p-5">
                 {/* Active Filters */}
                 {(sevFilter || catFilter) && (
                   <div className="flex items-center gap-2 mb-4">
@@ -791,6 +885,8 @@ export default function ScanDetail() {
                   onResolve={handleResolve}
                   initialSeverityFilter={sevFilter}
                   initialCategoryFilter={catFilter}
+                  initialOpenFindingId={qFinding ? Number(qFinding) : undefined}
+                  scanId={scan.id}
                 />
               </CarbonTile>
             </motion.div>
@@ -816,7 +912,7 @@ export default function ScanDetail() {
                     color: sev === 'Critical' ? C.red40 : sev === 'High' ? C.orange40 : sev === 'Medium' ? C.yellow30 : C.green40,
                   })),
                 ].map((kpi, i, arr) => (
-                  <CarbonTile key={kpi.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${C.gray80}` : undefined }}>
+                  <CarbonTile C={C} key={kpi.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${C.gray80}` : undefined }}>
                     <span className="text-[12px] font-normal block mb-1" style={{ color: C.gray50 }}>{kpi.label}</span>
                     <span className="text-[32px] font-light tracking-tight" style={{ color: kpi.color }}>{kpi.value}</span>
                   </CarbonTile>
@@ -824,7 +920,7 @@ export default function ScanDetail() {
               </div>
 
               {/* Issues by Anti-Pattern */}
-              <CarbonTile className="p-0">
+              <CarbonTile C={C} className="p-0">
                 <div className="flex items-center gap-2 px-5 py-3" style={{ background: C.gray80 }}>
                   <Code2 className="w-4 h-4" style={{ color: C.blue40 }} />
                   <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Issues by Anti-Pattern</span>
@@ -848,7 +944,7 @@ export default function ScanDetail() {
 
               {/* Severity Breakdown */}
               {Object.entries(codeAnalysis.severity_counts || {}).some(([, count]) => count > 0) && (
-                <CarbonTile className="p-5">
+                <CarbonTile C={C} className="p-5">
                   <h4 className="text-[14px] font-semibold mb-3" style={{ color: C.gray10 }}>Severity Breakdown</h4>
                   <div className="grid grid-cols-4 gap-0">
                     {Object.entries(codeAnalysis.severity_counts || {}).map(([sev, count]) => {
@@ -879,22 +975,34 @@ export default function ScanDetail() {
               {/* Coverage KPIs */}
               <div className="grid grid-cols-6">
                 {[
-                  { label: 'Assessed', value: paramCoverage.assessed, color: C.supportSuccess },
-                  { label: 'Deterministic', value: paramCoverage.deterministic_count ?? '—', color: C.teal40 },
-                  { label: 'AI Inferred', value: paramCoverage.ai_inferred_count ?? '—', color: C.blue40 },
-                  { label: 'Pending', value: paramCoverage.pending ?? '—', color: C.supportWarning },
-                  { label: 'Manual Only', value: paramCoverage.not_assessable, color: C.gray50 },
-                  { label: 'Coverage', value: `${coveragePct}%`, color: C.blue40 },
+                  { label: 'Assessed', value: paramCoverage.assessed, color: C.supportSuccess, drillable: true },
+                  { label: 'Deterministic', value: paramCoverage.deterministic_count ?? '—', color: C.teal40, drillable: true },
+                  { label: 'AI Inferred', value: paramCoverage.ai_inferred_count ?? '—', color: C.blue40, drillable: true },
+                  { label: 'Pending', value: paramCoverage.pending ?? '—', color: C.supportWarning, drillable: true },
+                  { label: 'Manual Only', value: paramCoverage.not_assessable, color: C.gray50, drillable: true },
+                  { label: 'Coverage', value: `${coveragePct}%`, color: C.blue40, drillable: false },
                 ].map((kpi, i) => (
-                  <CarbonTile key={kpi.label} className="px-4 py-4 text-center" style={{ borderRight: i < 5 ? `1px solid ${C.gray80}` : undefined }}>
-                    <span className="text-[24px] font-light block" style={{ color: kpi.color }}>{kpi.value}</span>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.gray50 }}>{kpi.label}</span>
+                  <CarbonTile C={C} key={kpi.label} className="px-4 py-4 text-center" style={{ borderRight: i < 5 ? `1px solid ${C.gray80}` : undefined }}>
+                    {kpi.drillable && kpi.value !== '—' && kpi.value !== 0 ? (
+                      <button
+                        onClick={() => setCoverageDrillType(kpi.label)}
+                        className="w-full text-center group"
+                      >
+                        <span className="text-[24px] font-light block transition-opacity group-hover:opacity-80 cursor-pointer" style={{ color: kpi.color }}>{kpi.value}</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wider transition-opacity group-hover:opacity-80" style={{ color: C.gray50 }}>{kpi.label}</span>
+                      </button>
+                    ) : (
+                      <>
+                        <span className="text-[24px] font-light block" style={{ color: kpi.color }}>{kpi.value}</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.gray50 }}>{kpi.label}</span>
+                      </>
+                    )}
                   </CarbonTile>
                 ))}
               </div>
 
               {/* Assessment Breakdown Bar */}
-              <CarbonTile className="p-5">
+              <CarbonTile C={C} className="p-5">
                 <h4 className="text-[14px] font-semibold mb-3" style={{ color: C.gray10 }}>Assessment Breakdown</h4>
                 <div className="h-2 flex overflow-hidden" style={{ background: C.gray80 }}>
                   {(paramCoverage.deterministic_count ?? 0) > 0 && (
@@ -924,7 +1032,7 @@ export default function ScanDetail() {
 
               {/* Per-category Coverage */}
               {categoryDetails.length > 0 && (
-                <CarbonTile className="p-0">
+                <CarbonTile C={C} className="p-0">
                   <div className="px-5 py-3" style={{ background: C.gray80 }}>
                     <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Coverage by Category</span>
                   </div>
@@ -947,23 +1055,6 @@ export default function ScanDetail() {
                 </CarbonTile>
               )}
 
-              {/* Manual Review Parameters */}
-              {paramCoverage.not_assessable_params?.length > 0 && (
-                <CarbonTile className="p-0">
-                  <div className="px-5 py-3" style={{ background: C.gray80 }}>
-                    <span className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Parameters Requiring Manual Review</span>
-                  </div>
-                  <div>
-                    {paramCoverage.not_assessable_params.map((p, i) => (
-                      <div key={p.id} className="flex items-start gap-3 px-5 py-2.5" style={{ borderBottom: i < paramCoverage!.not_assessable_params.length - 1 ? `1px solid ${C.gray80}` : undefined }}>
-                        <span className="text-[12px] min-w-[40px] font-mono" style={{ color: C.gray60 }}>{p.id}</span>
-                        <span className="text-[13px] min-w-[200px]" style={{ color: C.gray20 }}>{p.name}</span>
-                        <span className="text-[12px]" style={{ color: C.gray50 }}>{p.reason}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CarbonTile>
-              )}
             </motion.div>
           )}
         </AnimatePresence>

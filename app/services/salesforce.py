@@ -286,34 +286,43 @@ async def collect_runtime_data(
     runtime: dict[str, Any] = {}
 
     if progress_callback:
-        await progress_callback("Retrieving org governor limits…", percent=2)
+        try:
+            await progress_callback("Retrieving org governor limits…", percent=2)
+        except Exception:
+            logger.debug("Progress callback failed (client may have disconnected)")
     try:
         runtime["limits"] = await get_org_limits(target_org)
     except Exception as exc:
         logger.warning("Failed to get org limits: %s", exc)
         runtime["limits"] = {}
 
+    async def _safe_progress(msg: str, percent: int = 0):
+        if not progress_callback:
+            return
+        try:
+            await progress_callback(msg, percent=percent)
+        except Exception:
+            logger.debug("Progress callback failed (client may have disconnected)")
+
     all_queries = list(queries.items())
     tooling_items = list((tooling_queries or {}).items())
     grand_total = len(all_queries) + len(tooling_items)
 
     for idx, (key, query) in enumerate(all_queries, 1):
-        if progress_callback:
-            await progress_callback(
-                f"Running runtime query: {key} ({idx}/{grand_total})…",
-                percent=5 + int(idx / grand_total * 85),
-            )
+        await _safe_progress(
+            f"Running runtime query: {key} ({idx}/{grand_total})…",
+            percent=5 + int(idx / grand_total * 85),
+        )
         runtime[key] = await run_soql(target_org, query)
 
     if tooling_items:
         runtime["tooling"] = {}
         for idx2, (key, query) in enumerate(tooling_items, 1):
             overall_idx = len(all_queries) + idx2
-            if progress_callback:
-                await progress_callback(
-                    f"Running Tooling API query: {key} ({overall_idx}/{grand_total})…",
-                    percent=5 + int(overall_idx / grand_total * 85),
-                )
+            await _safe_progress(
+                f"Running Tooling API query: {key} ({overall_idx}/{grand_total})…",
+                percent=5 + int(overall_idx / grand_total * 85),
+            )
             runtime["tooling"][key] = await run_tooling_soql(target_org, query)
 
     return runtime

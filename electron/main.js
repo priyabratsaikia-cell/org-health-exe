@@ -370,6 +370,11 @@ function createMainWindow() {
         -webkit-app-region: no-drag;
         background: #161616;
         border-bottom: 1px solid #393939;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+      [data-theme="light"] .electron-window-controls {
+        background: #FFFFFF;
+        border-bottom-color: #E0E0E0;
       }
       .electron-window-controls button {
         background: none;
@@ -384,9 +389,16 @@ function createMainWindow() {
         font-size: 11px;
         transition: background 0.15s, color 0.15s;
       }
+      [data-theme="light"] .electron-window-controls button {
+        color: #525252;
+      }
       .electron-window-controls button:hover {
         background: #393939;
         color: #F4F4F4;
+      }
+      [data-theme="light"] .electron-window-controls button:hover {
+        background: #E0E0E0;
+        color: #161616;
       }
       .electron-window-controls button.close-btn:hover {
         background: #DA1E28;

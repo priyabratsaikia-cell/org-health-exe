@@ -3,11 +3,12 @@ import { useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import ToastContainer from '../ui/ToastContainer';
-import { useApp } from '@/context/AppContext';
+import { useApp, useColors } from '@/context/AppContext';
 import { api } from '@/api/client';
 
 export default function Layout() {
   const { dispatch } = useApp();
+  const C = useColors();
 
   useEffect(() => {
     api.getSettings().then(s => dispatch({ type: 'SET_SETTINGS', payload: s })).catch(() => {});
@@ -15,7 +16,7 @@ export default function Layout() {
   }, [dispatch]);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#161616' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: C.gray100 }}>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar />

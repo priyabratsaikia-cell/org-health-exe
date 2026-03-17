@@ -1,6 +1,7 @@
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import GlassCard from '../ui/GlassCard';
 import AgentPulse from '../ui/AgentPulse';
+import { useColors } from '@/context/AppContext';
 import type { DrillFilter } from '@/api/types';
 
 interface Props {
@@ -9,32 +10,44 @@ interface Props {
 }
 
 const EFFORT_COLORS: Record<string, string> = {
-  'Quick Fix': '#10B981',
+  Low: '#10B981',
   Medium: '#EAB308',
-  Large: '#F97316',
+  High: '#F97316',
+};
+
+const EFFORT_REMAP: Record<string, string> = {
+  'Quick Fix': 'Low',
+  Medium: 'Medium',
+  Large: 'High',
+  Low: 'Low',
+  High: 'High',
 };
 
 export default function EffortPolar({ effortDistribution, onDrill }: Props) {
+  const C = useColors();
   const total = effortDistribution.reduce((a, e) => a + e.cnt, 0);
 
   if (total === 0) {
     return (
       <GlassCard className="p-4">
-        <h4 className="text-sm font-bold text-gray-300 mb-3">Remediation Effort</h4>
-        <div className="h-48 flex items-center justify-center text-gray-600 text-sm">No effort data yet</div>
+        <h4 className="text-sm font-bold mb-3" style={{ color: C.gray10 }}>Remediation Effort</h4>
+        <div className="h-48 flex items-center justify-center text-sm" style={{ color: C.gray60 }}>No effort data yet</div>
       </GlassCard>
     );
   }
 
-  const effortMap: Record<string, number> = { 'Quick Fix': 0, Medium: 0, Large: 0 };
-  effortDistribution.forEach(e => { if (e.effort in effortMap) effortMap[e.effort] = e.cnt; });
+  const effortMap: Record<string, number> = { Low: 0, Medium: 0, High: 0 };
+  effortDistribution.forEach(e => {
+    const mapped = EFFORT_REMAP[e.effort] ?? e.effort;
+    if (mapped in effortMap) effortMap[mapped] += e.cnt;
+  });
   const data = Object.entries(effortMap).map(([name, value]) => ({ name, value }));
-  const quickPct = total > 0 ? Math.round(effortMap['Quick Fix'] / total * 100) : 0;
+  const lowPct = total > 0 ? Math.round(effortMap.Low / total * 100) : 0;
 
   return (
     <GlassCard className="p-4">
-      <h4 className="text-sm font-bold text-gray-300 mb-1">Remediation Effort</h4>
-      <p className="text-[10px] text-gray-500 mb-3">Click to filter by effort level</p>
+      <h4 className="text-sm font-bold mb-1" style={{ color: C.gray10 }}>Remediation Effort</h4>
+      <p className="text-[10px] mb-3" style={{ color: C.gray50 }}>Click to filter by effort level</p>
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -52,25 +65,25 @@ export default function EffortPolar({ effortDistribution, onDrill }: Props) {
               }}
             >
               {data.map(entry => (
-                <Cell key={entry.name} fill={EFFORT_COLORS[entry.name] || '#6B7280'} opacity={0.7} />
+                <Cell key={entry.name} fill={EFFORT_COLORS[entry.name] || '#6F6F6F'} opacity={0.7} />
               ))}
             </Pie>
             <Tooltip
-              contentStyle={{ backgroundColor: '#1F2937', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+              contentStyle={{ backgroundColor: C.gray90, border: `1px solid ${C.gray70}`, borderRadius: 0, fontSize: 12, color: C.gray10 }}
               formatter={(value, name) => [`${value} findings`, name]}
             />
             <Legend
-              formatter={(value) => <span className="text-[10px] text-gray-400">{value}</span>}
+              formatter={(value) => <span className="text-[10px]" style={{ color: C.gray40 }}>{value}</span>}
               iconType="circle"
               iconSize={8}
             />
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex items-start gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-start gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${C.gray80}` }}>
         <AgentPulse size="sm" />
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          <strong className="text-emerald-400">{quickPct}%</strong> are Quick Fixes. {effortMap.Large} require Large effort.
+        <p className="text-[11px] leading-relaxed" style={{ color: C.gray40 }}>
+          <strong style={{ color: C.green40 }}>{lowPct}%</strong> are Low effort. {effortMap.High} require High effort.
         </p>
       </div>
     </GlassCard>

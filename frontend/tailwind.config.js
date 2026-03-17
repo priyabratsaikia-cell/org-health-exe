@@ -4,11 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        base: '#0B0F1A',
-        surface: '#111827',
-        elevated: '#1F2937',
-        glass: 'rgba(17, 24, 39, 0.7)',
-        accent: { DEFAULT: '#D04A02', light: '#F97316', dark: '#B33E00', glow: 'rgba(208, 74, 2, 0.15)' },
+        base: 'var(--bg-base)',
+        surface: 'var(--bg-surface)',
+        elevated: 'var(--bg-elevated)',
+        glass: 'var(--bg-surface)',
+        accent: {
+          DEFAULT: 'rgb(var(--accent-rgb) / <alpha-value>)',
+          light: 'rgb(var(--accent-light-rgb) / <alpha-value>)',
+          dark: 'rgb(var(--accent-dark-rgb) / <alpha-value>)',
+          glow: 'rgb(var(--accent-rgb) / 0.15)',
+        },
         severity: {
           critical: '#EF4444',
           high: '#F97316',
@@ -24,13 +29,14 @@ export default {
         mono: ['JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace'],
       },
       borderColor: {
-        DEFAULT: 'rgba(255, 255, 255, 0.06)',
-        glow: 'rgba(208, 74, 2, 0.3)',
+        DEFAULT: 'var(--border-subtle)',
+        glow: 'rgb(var(--accent-rgb) / 0.3)',
       },
       boxShadow: {
-        glow: '0 0 20px rgba(208, 74, 2, 0.15)',
-        'glow-lg': '0 0 40px rgba(208, 74, 2, 0.2)',
-        glass: '0 4px 30px rgba(0, 0, 0, 0.3)',
+        glow: '0 0 20px rgb(var(--accent-rgb) / 0.15)',
+        'glow-lg': '0 0 40px rgb(var(--accent-rgb) / 0.2)',
+        'glow-xl': '0 0 60px rgb(var(--accent-rgb) / 0.3)',
+        glass: '0 4px 30px rgba(0, 0, 0, 0.1)',
         'inner-glow': 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
       },
       backdropBlur: {
@@ -44,8 +50,8 @@ export default {
       },
       keyframes: {
         glowPulse: {
-          '0%, 100%': { boxShadow: '0 0 8px rgba(208, 74, 2, 0.3)' },
-          '50%': { boxShadow: '0 0 20px rgba(208, 74, 2, 0.5)' },
+          '0%, 100%': { boxShadow: '0 0 8px rgb(var(--accent-rgb) / 0.3)' },
+          '50%': { boxShadow: '0 0 20px rgb(var(--accent-rgb) / 0.5)' },
         },
         slideInRight: {
           from: { transform: 'translateX(100%)', opacity: '0' },

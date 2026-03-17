@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import PageTransition from '@/components/layout/PageTransition';
 import { api } from '@/api/client';
 import { useApp } from '@/context/AppContext';
-import { getColors } from '@/utils/colors';
+import { getColors, type ThemeMode } from '@/utils/colors';
 import { fmtDate, timeAgo } from '@/utils/formatters';
 import type { Org, SettingsData, ParameterChecklist } from '@/api/types';
 
@@ -46,7 +46,8 @@ export default function Settings() {
   const [showConnectForm, setShowConnectForm] = useState(false);
   const [confirmRemoveOrg, setConfirmRemoveOrg] = useState<number | null>(null);
   const { state, toast, dispatch } = useApp();
-  const C = getColors(state.accentColor);
+  const C = getColors(state.accentColor, state.resolvedTheme);
+  const hoverBg = state.resolvedTheme === 'light' ? '#EBEBEB' : '#353535';
 
   const loadSettings = useCallback(async () => {
     try {
@@ -156,7 +157,7 @@ export default function Settings() {
     { key: 'orgs', label: 'Organizations', icon: <Server className="w-4 h-4" />, desc: `${orgs.length} connected` },
     { key: 'ai', label: 'AI Configuration', icon: <Bot className="w-4 h-4" />, desc: 'API key & model' },
     { key: 'params', label: 'Parameter Registry', icon: <Database className="w-4 h-4" />, desc: checklist ? `${checklist.total} params` : 'Loading...' },
-    { key: 'theme', label: 'Theme', icon: <Palette className="w-4 h-4" />, desc: state.accentColor === 'orange' ? 'PwC Orange' : 'Default Blue' },
+    { key: 'theme', label: 'Theme', icon: <Palette className="w-4 h-4" />, desc: `${state.accentColor === 'orange' ? 'Orange' : 'Blue'} · ${state.themeMode === 'system' ? 'System' : state.themeMode === 'light' ? 'Light' : 'Dark'}` },
   ];
 
   return (
@@ -171,7 +172,7 @@ export default function Settings() {
                 key={sec.key}
                 onClick={() => setActiveSection(sec.key)}
                 className="flex items-center gap-2 px-5 py-3 text-[14px] font-normal transition-colors relative"
-                style={{ color: isActive ? C.white : C.gray50 }}
+                style={{ color: isActive ? C.gray10 : C.gray50 }}
               >
                 <span style={{ color: isActive ? C.blue40 : C.gray50 }}>{sec.icon}</span>
                 <span>{sec.label}</span>
@@ -449,7 +450,7 @@ export default function Settings() {
                                 borderBottom: `1px solid ${C.gray80}`,
                                 borderLeft: isSelected ? `3px solid ${C.blue60}` : '3px solid transparent',
                               }}
-                              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#353535'; }}
+                              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = hoverBg; }}
                               onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? `${C.blue60}12` : C.gray90; }}
                             >
                               <div className="min-w-0">
@@ -637,7 +638,7 @@ export default function Settings() {
                               })}
                               className="w-full flex items-center gap-3 px-5 py-3 transition-colors"
                               style={{ background: C.gray90, borderBottom: `1px solid ${C.gray80}` }}
-                              onMouseEnter={e => (e.currentTarget.style.background = '#353535')}
+                              onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                               onMouseLeave={e => (e.currentTarget.style.background = C.gray90)}
                             >
                               {isOpen
@@ -760,34 +761,40 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  {/* Appearance Mode — Disabled */}
-                  <div className="px-6 py-5" style={{ background: C.gray90, borderBottom: `1px solid ${C.gray80}`, opacity: 0.45 }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-[14px] font-semibold" style={{ color: C.gray10 }}>Appearance</h4>
-                      <CarbonTag text="Coming soon" color={C.gray50} type="outline" />
-                    </div>
+                  {/* Appearance Mode */}
+                  <div className="px-6 py-5" style={{ background: C.gray90, borderBottom: `1px solid ${C.gray80}` }}>
+                    <h4 className="text-[14px] font-semibold mb-1" style={{ color: C.gray10 }}>Appearance</h4>
                     <p className="text-[12px] mb-5" style={{ color: C.gray50 }}>
                       Switch between light and dark modes, or follow your system preference.
                     </p>
                     <div className="flex gap-3">
-                      {[
-                        { icon: <Sun className="w-4 h-4" />, label: 'Light' },
-                        { icon: <Moon className="w-4 h-4" />, label: 'Dark' },
-                        { icon: <Monitor className="w-4 h-4" />, label: 'System' },
-                      ].map((opt, i) => (
-                        <div
-                          key={opt.label}
-                          className="flex items-center gap-2.5 px-5 py-3.5 cursor-not-allowed"
-                          style={{
-                            background: i === 1 ? `${C.gray60}15` : C.gray80,
-                            border: i === 1 ? `2px solid ${C.gray60}` : `2px solid ${C.gray70}`,
-                          }}
-                        >
-                          <span style={{ color: C.gray50 }}>{opt.icon}</span>
-                          <span className="text-[14px]" style={{ color: C.gray40 }}>{opt.label}</span>
-                          {i === 1 && <Check className="w-3.5 h-3.5 ml-1" style={{ color: C.gray50 }} />}
-                        </div>
-                      ))}
+                      {([
+                        { key: 'light' as ThemeMode, icon: <Sun className="w-4 h-4" />, label: 'Light', desc: 'Clean and bright' },
+                        { key: 'dark' as ThemeMode, icon: <Moon className="w-4 h-4" />, label: 'Dark', desc: 'Easy on the eyes' },
+                        { key: 'system' as ThemeMode, icon: <Monitor className="w-4 h-4" />, label: 'System', desc: 'Match OS setting' },
+                      ]).map(opt => {
+                        const isActive = state.themeMode === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            onClick={() => dispatch({ type: 'SET_THEME_MODE', payload: opt.key })}
+                            className="flex items-center gap-3 px-5 py-3.5 transition-colors"
+                            style={{
+                              background: isActive ? `${C.blue60}12` : C.gray80,
+                              border: isActive ? `2px solid ${C.blue60}` : `2px solid ${C.gray70}`,
+                            }}
+                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = C.blue60; }}
+                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = C.gray70; }}
+                          >
+                            <span style={{ color: isActive ? C.blue40 : C.gray50 }}>{opt.icon}</span>
+                            <div className="text-left">
+                              <span className="text-[14px] block" style={{ color: isActive ? C.gray10 : C.gray30 }}>{opt.label}</span>
+                              <span className="text-[11px]" style={{ color: C.gray50 }}>{opt.desc}</span>
+                            </div>
+                            {isActive && <Check className="w-3.5 h-3.5 ml-1" style={{ color: C.blue40 }} />}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </motion.div>
